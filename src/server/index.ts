@@ -10,7 +10,8 @@ import { openDB } from "./db.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..", "..");
 const DB_PATH = process.env.DB_PATH ?? join(ROOT, "data", "db.json");
-const PORT = Number(process.env.PORT ?? 5174);
+const PORT = Number(process.env.PORT ?? 5180);
+const PORT_TRY = 10;
 const IS_DEV = process.env.NODE_ENV !== "production";
 
 async function main() {
@@ -37,13 +38,27 @@ async function main() {
     app.setNotFoundHandler((_req, reply) => reply.sendFile("index.html"));
   }
 
-  await app.listen({ port: PORT, host: "127.0.0.1" });
-  app.log.info(`API em http://localhost:${PORT}`);
+  let bound: number | null = null;
+  for (let i = 0; i < PORT_TRY; i++) {
+    const tentar = PORT + i;
+    try {
+      await app.listen({ port: tentar, host: "127.0.0.1" });
+      bound = tentar;
+      break;
+    } catch (err: any) {
+      if (err?.code !== "EADDRINUSE") throw err;
+      app.log.warn(`porta ${tentar} ocupada, tentando ${tentar + 1}…`);
+    }
+  }
+  if (bound === null) {
+    throw new Error(`Nenhuma porta livre entre ${PORT} e ${PORT + PORT_TRY - 1}`);
+  }
+  app.log.info(`API em http://localhost:${bound}`);
 
   if (!IS_DEV) {
-    await open(`http://localhost:${PORT}`);
+    await open(`http://localhost:${bound}`);
   } else {
-    app.log.info("DEV: abra http://localhost:5173 (Vite)");
+    app.log.info("DEV: abra http://localhost:5173 (Vite) — API na porta " + bound);
   }
 }
 
