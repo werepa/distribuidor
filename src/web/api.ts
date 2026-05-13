@@ -1,4 +1,4 @@
-import type { Pessoa } from "@shared/schemas";
+import type { Pessoa, Turma, Alojamento } from "@shared/schemas";
 
 const BASE = "/api";
 
@@ -22,6 +22,19 @@ export const api = {
       req<Pessoa>(`/pessoas/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
     remove: (id: string) =>
       req<{ ok: true }>(`/pessoas/${id}`, { method: "DELETE" })
+  },
+
+  turmas: {
+    list: () => req<Turma[]>("/turmas"),
+    distribuir: () => req<{ ok: true; turmas: number }>("/turmas/distribuir", { method: "POST" }),
+    mover: (id: string, turmaId: string | null, lock = true) =>
+      req(`/turmas/pessoa/${id}`, { method: "PATCH", body: JSON.stringify({ turmaId, lock }) })
+  },
+  alojamentos: {
+    list: () => req<Alojamento[]>("/alojamentos"),
+    distribuir: () => req<{ ok: true }>("/alojamentos/distribuir", { method: "POST" }),
+    mover: (id: string, alojamentoId: string | null, lock = true) =>
+      req(`/alojamentos/pessoa/${id}`, { method: "PATCH", body: JSON.stringify({ alojamentoId, lock }) })
   },
 
   importar: {
