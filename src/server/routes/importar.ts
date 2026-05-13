@@ -73,11 +73,12 @@ function parsePessoas(rows: any[][]): { ok: Pessoa[]; erros: string[]; ignorados
 function parseAlojamentos(sheet: XLSX.WorkSheet): Alojamento[] {
   const range = XLSX.utils.decode_range(sheet["!ref"] ?? "A1");
   const out: Alojamento[] = [];
-  for (let r = 2; r <= Math.min(range.e.r, 50); r++) {
+  for (let r = 2; r <= range.e.r; r++) {
     const id = String(sheet[XLSX.utils.encode_cell({ r, c: 2 })]?.v ?? "").trim();
-    const cargoSexo = String(sheet[XLSX.utils.encode_cell({ r, c: 3 })]?.v ?? "").trim();
+    const cargoSexo = String(sheet[XLSX.utils.encode_cell({ r, c: 3 })]?.v ?? "").trim().toUpperCase();
     const max = Number(sheet[XLSX.utils.encode_cell({ r, c: 4 })]?.v ?? 0);
-    if (!id || !cargoSexo || !max) continue;
+    if (!id || !max || !/^[A-Z] \d{2}$/.test(id)) continue;
+    if (!cargoSexo.includes("M") && !cargoSexo.includes("F")) continue;
     out.push({ id, bloco: id.charAt(0), cargoSexo, max });
   }
   return out;
