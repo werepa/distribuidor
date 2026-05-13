@@ -1,0 +1,36 @@
+import type { Pessoa } from "@shared/schemas";
+
+const BASE = "/api";
+
+async function req<T>(path: string, init?: RequestInit): Promise<T> {
+  const r = await fetch(`${BASE}${path}`, {
+    headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
+    ...init
+  });
+  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+  return r.json() as Promise<T>;
+}
+
+export const api = {
+  health: () => req<{ ok: boolean; edicao: string }>("/health"),
+
+  pessoas: {
+    list: () => req<Pessoa[]>("/pessoas"),
+    create: (p: Omit<Pessoa, "id" | "criadoEm" | "lockManual">) =>
+      req<Pessoa>("/pessoas", { method: "POST", body: JSON.stringify(p) }),
+    update: (id: string, patch: Partial<Pessoa>) =>
+      req<Pessoa>(`/pessoas/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    remove: (id: string) =>
+      req<{ ok: true }>(`/pessoas/${id}`, { method: "DELETE" })
+  },
+
+  importar: {
+    xlsm: (file: File) => {
+      const fd = new FormData();
+      fd.append("file", file);
+      return fetch(`${BASE}/importar/xlsm`, { method: "POST", body: fd })
+        .then(r => r.ok ? r.json() : r.text().then(t => Promise.reject(new Error(t))))
+        as Promise<{ inseridos: number; ignorados: number; erros: string[] }>;
+    }
+  }
+};
