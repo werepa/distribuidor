@@ -48,6 +48,13 @@ export const api = {
     setEdicao: (edicao: string) => req("/config/edicao", { method: "PUT", body: JSON.stringify({ edicao }) })
   },
 
+  backups: {
+    list: () => req<Array<{ nome: string; tamanho: number; mtime: string }>>("/backups"),
+    criar: () => req<{ ok: true; path: string }>("/backups", { method: "POST" }),
+    restaurar: (nome: string) => req<{ ok: true; msg: string }>(
+      "/backups/restaurar", { method: "POST", body: JSON.stringify({ nome }) })
+  },
+
   importar: {
     xlsm: async (file: File): Promise<{ inseridos: number; ignorados: number; alojamentos: number; erros: string[] }> => {
       const fd = new FormData();
