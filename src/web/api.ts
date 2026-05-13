@@ -36,6 +36,11 @@ export const api = {
     mover: (id: string, alojamentoId: string | null, lock = true) =>
       req(`/alojamentos/pessoa/${id}`, { method: "PATCH", body: JSON.stringify({ alojamentoId, lock }) })
   },
+  nomesGuerra: {
+    gerar: () => req<{ ok: true }>("/nomes-guerra/gerar", { method: "POST" }),
+    set: (id: string, nomeGuerra: string | null, lock = true) =>
+      req(`/nomes-guerra/pessoa/${id}`, { method: "PATCH", body: JSON.stringify({ nomeGuerra, lock }) })
+  },
 
   importar: {
     xlsm: async (file: File): Promise<{ inseridos: number; ignorados: number; alojamentos: number; erros: string[] }> => {
