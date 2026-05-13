@@ -23,6 +23,7 @@ async function main() {
   app.register(import("./routes/importar.js"), { prefix: "/api/importar" });
   app.register(import("./routes/turmas.js"), { prefix: "/api/turmas" });
   app.register(import("./routes/pessoas.js"), { prefix: "/api/pessoas" });
+  app.register(import("./routes/alojamentos.js"), { prefix: "/api/alojamentos" });
 
   app.get("/api/health", async () => ({ ok: true, edicao: db.data.meta.edicao }));
 
