@@ -18,7 +18,7 @@ async function main() {
   app.decorate("db", db);
 
   // rotas REST registradas em tasks subsequentes
-  // app.register(import("./routes/pessoas.js"), { prefix: "/api/pessoas" });
+  app.register(import("./routes/pessoas.js"), { prefix: "/api/pessoas" });
   // app.register(import("./routes/importar.js"), { prefix: "/api/importar" });
 
   app.get("/api/health", async () => ({ ok: true, edicao: db.data.meta.edicao }));
