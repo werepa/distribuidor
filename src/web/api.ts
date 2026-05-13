@@ -25,12 +25,12 @@ export const api = {
   },
 
   importar: {
-    xlsm: (file: File) => {
+    xlsm: async (file: File): Promise<{ inseridos: number; ignorados: number; alojamentos: number; erros: string[] }> => {
       const fd = new FormData();
       fd.append("file", file);
-      return fetch(`${BASE}/importar/xlsm`, { method: "POST", body: fd })
-        .then(r => r.ok ? r.json() : r.text().then(t => Promise.reject(new Error(t))))
-        as Promise<{ inseridos: number; ignorados: number; erros: string[] }>;
+      const r = await fetch(`${BASE}/importar/xlsm`, { method: "POST", body: fd });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
     }
   }
 };
