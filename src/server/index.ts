@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
+import multipart from "@fastify/multipart";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { existsSync } from "node:fs";
@@ -18,8 +19,9 @@ async function main() {
   app.decorate("db", db);
 
   // rotas REST registradas em tasks subsequentes
+  await app.register(multipart, { limits: { fileSize: 20 * 1024 * 1024 } });
+  app.register(import("./routes/importar.js"), { prefix: "/api/importar" });
   app.register(import("./routes/pessoas.js"), { prefix: "/api/pessoas" });
-  // app.register(import("./routes/importar.js"), { prefix: "/api/importar" });
 
   app.get("/api/health", async () => ({ ok: true, edicao: db.data.meta.edicao }));
 
