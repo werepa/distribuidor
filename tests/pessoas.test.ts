@@ -72,4 +72,26 @@ describe("rotas /api/pessoas", () => {
     });
     expect(r.statusCode).toBe(400);
   });
+
+  it("POST aplica redistribuicao incremental quando há turmas", async () => {
+    const { mkdtempSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const dir = mkdtempSync(join(tmpdir(), "cfp-"));
+    const Fastify = (await import("fastify")).default;
+    const { openDB } = await import("../src/server/db");
+    const pessoasRoutes = (await import("../src/server/routes/pessoas")).default;
+    const app = Fastify();
+    const db = await openDB(join(dir, "db.json"));
+    db.data.turmas = [{ id: "APF-1", cargo: "APF", numero: 1, label: "APF-A" }];
+    await db.write();
+    app.decorate("db", db);
+    await app.register(pessoasRoutes, { prefix: "/api/pessoas" });
+    const r = await app.inject({
+      method: "POST", url: "/api/pessoas",
+      payload: { nome: "X Y", cpf: "1", cargo: "APF", sexo: "M", situacao: "REGULAR", email: "x@y" }
+    });
+    expect(r.statusCode).toBe(201);
+    expect(r.json().turmaId).toBe("APF-1");
+  });
 });

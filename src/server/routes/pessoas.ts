@@ -3,6 +3,7 @@ import { v4 as uuid } from "uuid";
 import { z } from "zod";
 import { PessoaSchema, type Pessoa } from "../../shared/schemas.js";
 import { backup } from "../backup.js";
+import { redistribuirIncremental } from "../domain/redistribuirIncremental.js";
 
 const CreateSchema = PessoaSchema.omit({ id: true, criadoEm: true, lockManual: true });
 const UpdateSchema = PessoaSchema.partial().omit({ id: true, criadoEm: true });
@@ -19,10 +20,24 @@ const pessoasRoutes: FastifyPluginAsync = async (app) => {
       criadoEm: new Date().toISOString(),
       lockManual: {}
     };
-    app.db.data.pessoas.push(novo);
+    if (app.db.data.turmas.length > 0 || app.db.data.alojamentos.length > 0) {
+      app.db.data.pessoas = redistribuirIncremental(
+        novo,
+        app.db.data.pessoas,
+        app.db.data.turmas,
+        app.db.data.alojamentos,
+        app.db.data.config
+      );
+    } else {
+      app.db.data.pessoas.push(novo);
+    }
     app.db.data.meta.atualizadoEm = new Date().toISOString();
+    app.db.data.historico.push({
+      ts: new Date().toISOString(), acao: "criar-pessoa-incremental", detalhes: { id: novo.id }
+    });
     await app.db.write();
-    return reply.code(201).send(novo);
+    const final = app.db.data.pessoas.find(p => p.id === novo.id)!;
+    return reply.code(201).send(final);
   });
 
   app.patch<{ Params: { id: string } }>("/:id", async (req, reply) => {
