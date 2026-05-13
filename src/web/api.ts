@@ -1,4 +1,4 @@
-import type { Pessoa, Turma, Alojamento } from "@shared/schemas";
+import type { Pessoa, Turma, Alojamento, Config, Meta } from "@shared/schemas";
 
 const BASE = "/api";
 
@@ -40,6 +40,12 @@ export const api = {
     gerar: () => req<{ ok: true }>("/nomes-guerra/gerar", { method: "POST" }),
     set: (id: string, nomeGuerra: string | null, lock = true) =>
       req(`/nomes-guerra/pessoa/${id}`, { method: "PATCH", body: JSON.stringify({ nomeGuerra, lock }) })
+  },
+  config: {
+    get: () => req<Config>("/config"),
+    meta: () => req<Meta>("/config/meta"),
+    save: (c: Config) => req("/config", { method: "PUT", body: JSON.stringify(c) }),
+    setEdicao: (edicao: string) => req("/config/edicao", { method: "PUT", body: JSON.stringify({ edicao }) })
   },
 
   importar: {
