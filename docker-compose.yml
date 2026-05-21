@@ -4,14 +4,21 @@ services:
     image: distribuidor-cfp:latest
     container_name: distribuidor-cfp
     restart: unless-stopped
-    ports:
-      - "5180:5180"
+    expose:
+      - "5180"
     volumes:
       - distribuidor-data:/app/data
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: 5180
+    networks:
+      - grade-network-prod
 
 volumes:
   distribuidor-data:
+
+networks:
+  grade-network-prod:
+    external: true
+    name: grade-network-prod
