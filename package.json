@@ -10,7 +10,7 @@
     "build": "vite build && tsc -p tsconfig.server.json",
     "start": "npm run kill && npm run build && cross-env NODE_ENV=production node --enable-source-maps dist-server/server/index.js",
     "start:nobuild": "cross-env NODE_ENV=production node --enable-source-maps dist-server/server/index.js",
-    "kill": "pkill -f 'tsx watch src/server' ; pkill -f 'concurrently.*npm:dev' ; pkill -f vite ; exit 0",
+    "kill": "node scripts/kill-dev.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
