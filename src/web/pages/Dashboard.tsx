@@ -23,7 +23,7 @@ export default function DashboardPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-semibold">{meta?.edicao ?? "—"} <span className="text-slate-500 text-base">· Dashboard</span></h1>
+      <h1 className="text-[34px] font-normal leading-none">{meta?.edicao ?? "—"} <span className="text-ink-mute text-sm font-mono uppercase tracking-widest2">· Dashboard</span></h1>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
         <Card label="Total de pessoas" value={total} />
@@ -55,7 +55,7 @@ export default function DashboardPage() {
 
 function Card({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="bg-white border rounded-lg p-4">
+    <div className="bg-ivory border-ivory-edge shadow-paper rounded-lg p-4">
       <div className="text-xs uppercase text-slate-500">{label}</div>
       <div className="text-2xl font-semibold mt-1">{value}</div>
     </div>

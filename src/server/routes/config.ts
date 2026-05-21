@@ -1,5 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
-import { ConfigSchema } from "../../shared/schemas.js";
+import { resolve } from "node:path";
+import { ConfigSchema, DEFAULT_CONFIG } from "../../shared/schemas.js";
+import { backup } from "../backup.js";
 
 const configRoutes: FastifyPluginAsync = async (app) => {
   app.get("/", async () => app.db.data.config);
@@ -17,6 +19,19 @@ const configRoutes: FastifyPluginAsync = async (app) => {
     if (!e) return reply.code(400).send({ error: "edicao obrigatória" });
     app.db.data.meta.edicao = e;
     app.db.data.meta.atualizadoEm = new Date().toISOString();
+    await app.db.write();
+    return { ok: true };
+  });
+  app.delete("/resetar", async () => {
+    const dbPath = process.env.DB_PATH ?? resolve("data/db.json");
+    if (process.env.NODE_ENV !== "test") await backup(dbPath);
+    const now = new Date().toISOString();
+    app.db.data.pessoas = [];
+    app.db.data.turmas = [];
+    app.db.data.alojamentos = [];
+    app.db.data.historico = [{ ts: now, acao: "resetar-db", detalhes: {} }];
+    app.db.data.config = DEFAULT_CONFIG;
+    app.db.data.meta = { edicao: "CFP 2026", criadoEm: now, atualizadoEm: now };
     await app.db.write();
     return { ok: true };
   });

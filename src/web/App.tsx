@@ -10,9 +10,9 @@ import Backups from "./pages/Backups";
 
 export default function App() {
   return (
-    <div className="flex h-full">
+    <div className="flex h-full relative">
       <Sidebar />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto page print:overflow-visible">
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/pessoas" element={<Pessoas />} />

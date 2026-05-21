@@ -3,10 +3,10 @@ import type { Pessoa, Turma, Alojamento, Config, Meta } from "@shared/schemas";
 const BASE = "/api";
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(`${BASE}${path}`, {
-    headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
-    ...init
-  });
+  const hasBody = init?.body !== undefined && init.body !== null;
+  const headers: Record<string, string> = { ...(init?.headers as Record<string, string> ?? {}) };
+  if (hasBody && !headers["content-type"]) headers["content-type"] = "application/json";
+  const r = await fetch(`${BASE}${path}`, { ...init, headers });
   if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
   return r.json() as Promise<T>;
 }
@@ -45,7 +45,8 @@ export const api = {
     get: () => req<Config>("/config"),
     meta: () => req<Meta>("/config/meta"),
     save: (c: Config) => req("/config", { method: "PUT", body: JSON.stringify(c) }),
-    setEdicao: (edicao: string) => req("/config/edicao", { method: "PUT", body: JSON.stringify({ edicao }) })
+    setEdicao: (edicao: string) => req("/config/edicao", { method: "PUT", body: JSON.stringify({ edicao }) }),
+    resetar: () => req<{ ok: true }>("/config/resetar", { method: "DELETE" })
   },
 
   backups: {

@@ -20,7 +20,7 @@ async function main() {
   app.decorate("db", db);
 
   // rotas REST registradas em tasks subsequentes
-  await app.register(multipart, { limits: { fileSize: 20 * 1024 * 1024 } });
+  await app.register(multipart, { limits: { fileSize: 100 * 1024 * 1024 } });
   app.register(import("./routes/importar.js"), { prefix: "/api/importar" });
   app.register(import("./routes/turmas.js"), { prefix: "/api/turmas" });
   app.register(import("./routes/pessoas.js"), { prefix: "/api/pessoas" });
@@ -58,7 +58,7 @@ async function main() {
   if (!IS_DEV) {
     await open(`http://localhost:${bound}`);
   } else {
-    app.log.info("DEV: abra http://localhost:5173 (Vite) — API na porta " + bound);
+    app.log.info(`DEV: abra http://localhost:5173 (Vite) — API na porta ${bound}`);
   }
 }
 

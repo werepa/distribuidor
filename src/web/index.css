@@ -2,5 +2,234 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body, #root { height: 100%; }
-body { @apply bg-slate-50 text-slate-900 font-sans antialiased; }
+@layer base {
+  html, body, #root { height: 100%; }
+
+  body {
+    background-color: theme('colors.paper.DEFAULT');
+    color: theme('colors.ink.DEFAULT');
+    @apply font-sans antialiased;
+    font-feature-settings: "ss01", "cv11";
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Decorative atmospheric tint — seal-green + heraldic-gold breathing */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image:
+      radial-gradient(circle at 18% 22%, rgba(29,58,50,0.045), transparent 45%),
+      radial-gradient(circle at 84% 78%, rgba(200,145,52,0.040), transparent 50%);
+  }
+
+  h1, h2, h3 { @apply font-display tracking-tight; }
+  h1 { font-weight: 400; }
+
+  table { font-variant-numeric: tabular-nums; }
+
+  *:focus-visible {
+    @apply outline-none ring-2 ring-wax/40 ring-offset-1 ring-offset-paper;
+  }
+
+  input[type="text"], input[type="number"], input[type="email"], input:not([type]), select, textarea {
+    @apply bg-paper border border-bone rounded-md transition-colors;
+  }
+  input:focus, select:focus, textarea:focus {
+    @apply border-wax/40;
+  }
+
+  hr { @apply border-bone; }
+
+  ::selection { background: #1d3a32; color: #f4ecd6; }
+}
+
+@layer components {
+  .nav-num {
+    @apply font-mono text-[10px] tabular-nums tracking-widest2;
+  }
+
+  .card {
+    background-color: theme('colors.ivory.DEFAULT');
+    @apply border border-ivory-edge rounded-lg shadow-paper;
+  }
+
+  .btn-primary {
+    @apply bg-seal text-paper hover:bg-seal-deep disabled:bg-seal/40
+           px-4 py-2 rounded-md text-sm font-medium tracking-wide
+           transition-colors inline-flex items-center gap-2 shadow-sm;
+  }
+
+  .btn-accent {
+    @apply bg-wax text-paper hover:bg-wax-deep disabled:bg-wax/40
+           px-4 py-2 rounded-md text-sm font-medium tracking-wide
+           transition-colors inline-flex items-center gap-2 shadow-sm;
+  }
+
+  .btn-ghost {
+    @apply border border-bone bg-paper hover:bg-paper-dim
+           px-4 py-2 rounded-md text-sm font-medium tracking-wide
+           transition-colors inline-flex items-center gap-2;
+  }
+
+  .eyebrow {
+    @apply font-mono text-[10px] uppercase tracking-widest2 text-ink-mute;
+  }
+
+  .page { position: relative; z-index: 1; }
+}
+
+/* ============ PRINT ============ */
+@media print {
+  @page {
+    margin: 18mm 14mm 22mm;
+    size: A4;
+    @top-left   { content: ""; }
+    @top-center { content: ""; }
+    @top-right  { content: ""; }
+    @bottom-center {
+      content: "Página " counter(page) " de " counter(pages);
+      font-family: "Geist Mono", monospace;
+      font-size: 8pt;
+      color: #555;
+      letter-spacing: 0.18em;
+    }
+    @bottom-right {
+      content: "DISTRIBUIDOR CFP";
+      font-family: "Geist Mono", monospace;
+      font-size: 7pt;
+      color: #999;
+      letter-spacing: 0.22em;
+    }
+  }
+  @page :first { margin-top: 14mm; }
+
+  body::before { display: none !important; }
+
+  body { background: #fff !important; color: #000 !important; }
+
+  /* Hide chrome */
+  aside,
+  .no-print,
+  nav,
+  button { display: none !important; }
+
+  /* Reveal whole content */
+  main, .page {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Page wrapper full width */
+  main > * { padding: 0 !important; max-width: 100% !important; }
+
+  /* Tables: keep rows together, force readable border */
+  table { width: 100%; border-collapse: collapse; page-break-inside: auto; font-size: 9pt; }
+  thead { display: table-header-group; }
+  tr { page-break-inside: avoid; }
+  th, td {
+    color: #000 !important;
+    background: transparent !important;
+    padding: 3pt 5pt !important;
+  }
+  thead th {
+    border-top: 1.2pt solid #000 !important;
+    border-bottom: 0.6pt solid #000 !important;
+    font-family: "Geist Mono", monospace;
+    font-size: 7pt;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    text-align: left !important;
+    color: #000 !important;
+    padding-bottom: 5pt !important;
+    background: transparent !important;
+  }
+  /* Sort buttons in headers render as plain text on print */
+  thead th button { all: unset !important; font: inherit !important; }
+  thead th button span { display: none !important; }
+  /* Faint zebra stripes for scanability */
+  tbody tr:nth-child(even) td { background: #f6f1e3 !important; }
+  tbody tr { border-bottom: 0.3pt solid #ddd !important; }
+  /* Last row gets a stronger closing rule */
+  tbody tr:last-child { border-bottom: 1pt solid #000 !important; }
+
+  /* Pessoas-specific column treatment.
+     Coluna 1 = #, 2 = Nome+CPF, 3 = Cargo, 4 = Sexo,
+     5 = Situação, 6 = Turma, 7 = Alojamento, 8 = Nome Guerra */
+  table.pessoas-table td { vertical-align: top; }
+
+  /* Nome em serif, CPF logo abaixo em mono pequeno */
+  table.pessoas-table td:nth-child(2) > div:first-child {
+    font-family: "Instrument Serif", Georgia, serif !important;
+    font-size: 11pt;
+    letter-spacing: -0.005em;
+    line-height: 1.15;
+  }
+  table.pessoas-table td:nth-child(2) > div:nth-child(2) {
+    font-family: "Geist Mono", monospace !important;
+    font-size: 7.5pt;
+    color: #555 !important;
+    margin-top: 0.5pt;
+  }
+
+  /* Turma e Alojamento em mono */
+  table.pessoas-table td:nth-child(6),
+  table.pessoas-table td:nth-child(7) {
+    font-family: "Geist Mono", monospace !important;
+    font-size: 8pt;
+  }
+
+  /* Nome Guerra em serif itálico */
+  table.pessoas-table td:nth-child(8) {
+    font-style: italic;
+    font-family: "Instrument Serif", Georgia, serif !important;
+    font-size: 10pt;
+  }
+
+  /* Cards / kanban columns lose decoration */
+  .card, .bg-paper, .bg-white {
+    background: #fff !important;
+    box-shadow: none !important;
+    border-color: #ccc !important;
+  }
+
+  /* Inputs render value-only */
+  input, select, textarea {
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  /* Stronger heading print (when not hidden) */
+  h1, h2, h3 { color: #000 !important; }
+
+  /* PrintHeader is allowed to show */
+  .print-header { display: block !important; }
+  .print-header * { color: inherit !important; }
+
+  /* Reveal print-only sections */
+  .print-only { display: block !important; }
+
+  /* Make sure on-screen DnD/Kanban surface vanishes when we have a print-only fallback */
+  .screen-only { display: none !important; }
+
+  /* Page break before sections marked break-before-page (used by turmas) */
+  .print-break { page-break-before: always; }
+
+  /* Kanban columns become stacked vertically when printing */
+  .kanban-row { display: block !important; }
+  .kanban-row > * {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin-bottom: 12px;
+    page-break-inside: avoid;
+  }
+}
+
