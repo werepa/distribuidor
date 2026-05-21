@@ -18,7 +18,7 @@ ssh "$REMOTE" bash -s <<'ENDSSH'
     git clone https://github.com/werepa/distribuidor.git "$APP_DIR"
   else
     echo "[INFO] Atualizando repositório..."
-    cd "$APP_DIR" && git pull
+    cd "$APP_DIR" && git fetch origin && git reset --hard origin/main
   fi
 
   cd "$APP_DIR"
