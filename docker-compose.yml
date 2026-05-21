@@ -1,0 +1,17 @@
+services:
+  distribuidor:
+    build: .
+    image: distribuidor-cfp:latest
+    container_name: distribuidor-cfp
+    restart: unless-stopped
+    ports:
+      - "5180:5180"
+    volumes:
+      - distribuidor-data:/app/data
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 5180
+
+volumes:
+  distribuidor-data:

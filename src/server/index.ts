@@ -11,6 +11,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..", "..");
 const DB_PATH = process.env.DB_PATH ?? join(ROOT, "data", "db.json");
 const PORT = Number(process.env.PORT ?? 5180);
+const HOST = process.env.HOST ?? "127.0.0.1";
 const PORT_TRY = 10;
 const IS_DEV = process.env.NODE_ENV !== "production";
 
@@ -42,7 +43,7 @@ async function main() {
   for (let i = 0; i < PORT_TRY; i++) {
     const tentar = PORT + i;
     try {
-      await app.listen({ port: tentar, host: "127.0.0.1" });
+      await app.listen({ port: tentar, host: HOST });
       bound = tentar;
       break;
     } catch (err: any) {

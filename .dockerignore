@@ -1,0 +1,8 @@
+node_modules
+dist-web
+dist-server
+data
+.git
+.DS_Store
+node_modules.zip
+*.log
