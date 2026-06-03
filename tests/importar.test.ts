@@ -60,6 +60,53 @@ describe("POST /api/importar/xlsm", () => {
     expect(app.db.data.alojamentos[0]!.max).toBe(6);
   });
 
+  it("auto-detecta a aba correta independente do nome", async () => {
+    const app = await buildApp();
+    const wb = XLSX.utils.book_new();
+    // aba irrelevante primeiro, para garantir que a escolha é por conteúdo
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["foo", "bar"], [1, 2]]), "Instruções");
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["Nome", "CPF", "Sexo", "Cargo", "Situação"],
+      ["FELIPE SOARES", "301.498.637-21", "M", "PPF", "R"]
+    ]);
+    XLSX.utils.book_append_sheet(wb, ws, "Cadastro de Servidores");
+    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    const fd = new FormData();
+    fd.append("file", buf, { filename: "x.xlsx", contentType: "application/octet-stream" });
+    const r = await app.inject({
+      method: "POST", url: "/api/importar/xlsm",
+      payload: fd, headers: fd.getHeaders()
+    });
+    expect(r.statusCode).toBe(200);
+    const body = r.json();
+    expect(body.inseridos).toBe(1);
+    expect(app.db.data.pessoas[0]!.nome).toBe("FELIPE SOARES");
+  });
+
+  it("importa sem email (campo faltante opcional) e normaliza situação abreviada", async () => {
+    const app = await buildApp();
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["Nome", "CPF", "Sexo", "Cargo", "Situação"],
+      ["FELIPE SOARES", "301.498.637-21", "M", "PPF", "R"],
+      ["MARIA SOUZA", "111.222.333-44", "F", "DPF", "SJ"]
+    ]);
+    XLSX.utils.book_append_sheet(wb, ws, "Cadastro de Servidores");
+    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    const fd = new FormData();
+    fd.append("file", buf, { filename: "x.xlsx", contentType: "application/octet-stream" });
+    const r = await app.inject({
+      method: "POST", url: "/api/importar/xlsm",
+      payload: fd, headers: fd.getHeaders()
+    });
+    expect(r.statusCode).toBe(200);
+    const body = r.json();
+    expect(body.inseridos).toBe(2);
+    expect(app.db.data.pessoas[0]!.email).toBeUndefined();
+    expect(app.db.data.pessoas[0]!.situacao).toBe("REGULAR");
+    expect(app.db.data.pessoas[1]!.situacao).toBe("SUB JUDICE");
+  });
+
   it("ignora linhas sem campos obrigatórios e relata erros", async () => {
     const app = await buildApp();
     const wb = XLSX.utils.book_new();

@@ -64,7 +64,7 @@ export default function Pessoas() {
     const porNome = a.nome.localeCompare(b.nome, "pt-BR");
     if (ordem === "cargo" && a.cargo !== b.cargo) return a.cargo.localeCompare(b.cargo);
     if (ordem === "situacao" && a.situacao !== b.situacao) {
-      return (SIT_ORDEM[a.situacao] ?? 99) - (SIT_ORDEM[b.situacao] ?? 99);
+      return (SIT_ORDEM[a.situacao ?? ""] ?? 99) - (SIT_ORDEM[b.situacao ?? ""] ?? 99);
     }
     if (ordem === "turma") {
       const ta = a.turmaId ?? "￿", tb = b.turmaId ?? "￿";
@@ -252,8 +252,8 @@ function PessoaModal({ pessoaInicial, onClose, onSaved }: {
     cpf: pessoaInicial.cpf,
     cargo: pessoaInicial.cargo,
     sexo: pessoaInicial.sexo,
-    situacao: pessoaInicial.situacao,
-    email: pessoaInicial.email
+    situacao: pessoaInicial.situacao ?? "REGULAR",
+    email: pessoaInicial.email ?? ""
   } : PESSOA_VAZIA);
   const [salvando, setSalvando] = useState(false);
 

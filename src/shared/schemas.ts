@@ -4,6 +4,7 @@ export const Cargo = z.enum(["APF", "DPF", "EPF", "PCF", "PPF"]);
 export const Sexo = z.enum(["M", "F"]);
 export const Situacao = z.enum(["REGULAR", "SUB JUDICE", "ESPECIAL"]);
 export const Criterio = z.enum(["completar", "round-robin"]);
+export const CriterioAlojamento = z.enum(["dividido", "cargo-turma", "cargo"]);
 
 export const LockManualSchema = z.object({
   turma: z.boolean().optional(),
@@ -17,8 +18,8 @@ export const PessoaSchema = z.object({
   cpf: z.string().min(1),
   cargo: Cargo,
   sexo: Sexo,
-  situacao: Situacao,
-  email: z.string().min(1),
+  situacao: Situacao.optional(),
+  email: z.string().min(1).optional(),
   dataNascimento: z.string().optional(),
   fatoRH: z.string().optional(),
   tipoSanguineo: z.string().optional(),
@@ -57,6 +58,7 @@ export const ConfigSchema = z.object({
     PPF: z.number().int().nonnegative()
   }),
   criterioDistribuicao: Criterio,
+  criterioAlojamento: CriterioAlojamento.default("dividido"),
   folgaAlojamento: z.number().min(0).max(0.9),
   normalizacoesFoneticas: z.array(z.object({ de: z.string(), para: z.string() })),
   stopWordsNomeGuerra: z.array(z.string())
@@ -94,6 +96,7 @@ export type Meta = z.infer<typeof MetaSchema>;
 export const DEFAULT_CONFIG: Config = {
   turmasPorCargo: { APF: 1, DPF: 1, EPF: 1, PCF: 1, PPF: 1 },
   criterioDistribuicao: "completar",
+  criterioAlojamento: "dividido",
   folgaAlojamento: 0.15,
   normalizacoesFoneticas: [
     { de: "TH", para: "T" },

@@ -11,25 +11,51 @@ interface Resultado {
   erros: string[];
 }
 
-const obrig = ["nome", "cpf", "cargo", "sexo", "email", "situacao"] as const;
+// Núcleo realmente necessário para distribuir; demais campos são opcionais.
+const obrig = ["nome", "cpf", "cargo", "sexo"] as const;
+
+const COL_MAP: Record<string, string> = {
+  NOME: "nome", CPF: "cpf", CARGO: "cargo", SEXO: "sexo",
+  EMAIL: "email", "SITUAÇÃO": "situacao", SITUACAO: "situacao",
+  DATANASCIMENTO: "dataNascimento", FATORH: "fatoRH", TIPOSANGUINEO: "tipoSanguineo",
+  DDDTELEFONEFIXO: "dddTelefoneFixo", NUMTELEFONEFIXO: "numTelefoneFixo",
+  DDDCEL: "dddCel", CELULAR: "celular", CURSO: "curso"
+};
+
+function mapHeader(rows: any[][]): Record<string, number> {
+  const idx: Record<string, number> = {};
+  if (rows.length === 0) return idx;
+  rows[0]!.map(h => String(h ?? "").trim().toUpperCase())
+    .forEach((h, i) => { if (COL_MAP[h]) idx[COL_MAP[h]!] = i; });
+  return idx;
+}
+
+// Aceita "R"/"REGULAR", "SJ"/"SUB JUDICE", "E"/"ESP"/"ESPECIAL" (case-insensitive).
+function normSituacao(v: string | undefined): string | undefined {
+  if (!v) return undefined;
+  const s = v.trim().toUpperCase();
+  if (s === "R" || s === "REGULAR") return "REGULAR";
+  if (s === "SJ" || s === "SUB JUDICE" || s === "SUBJUDICE") return "SUB JUDICE";
+  if (s === "E" || s === "ESP" || s === "ESPECIAL") return "ESPECIAL";
+  return s; // deixa o safeParse decidir se é inválido
+}
+
+// Escolhe a aba cujo cabeçalho casa com mais colunas conhecidas, exigindo o núcleo.
+function escolherAba(wb: XLSX.WorkBook): any[][] | undefined {
+  let melhor: { score: number; rows: any[][] } | undefined;
+  for (const name of wb.SheetNames) {
+    const rows = XLSX.utils.sheet_to_json<any[]>(wb.Sheets[name]!, { header: 1, raw: false });
+    const idx = mapHeader(rows);
+    if (obrig.some(k => idx[k] === undefined)) continue;
+    const score = Object.keys(idx).length;
+    if (!melhor || score > melhor.score) melhor = { score, rows };
+  }
+  return melhor?.rows;
+}
 
 function parsePessoas(rows: any[][]): { ok: Pessoa[]; erros: string[]; ignorados: number } {
-  if (rows.length < 2) return { ok: [], erros: ["FIC_COREC vazia"], ignorados: 0 };
-  const headerRaw = rows[0]!.map(h => String(h ?? "").trim().toUpperCase());
-  const idx: Record<string, number> = {};
-  const map: Record<string, string> = {
-    NOME: "nome", CPF: "cpf", CARGO: "cargo", SEXO: "sexo",
-    EMAIL: "email", "SITUAÇÃO": "situacao", SITUACAO: "situacao",
-    DATANASCIMENTO: "dataNascimento", FATORH: "fatoRH", TIPOSANGUINEO: "tipoSanguineo",
-    DDDTELEFONEFIXO: "dddTelefoneFixo", NUMTELEFONEFIXO: "numTelefoneFixo",
-    DDDCEL: "dddCel", CELULAR: "celular", CURSO: "curso"
-  };
-  headerRaw.forEach((h, i) => { if (map[h]) idx[map[h]!] = i; });
-  for (const k of obrig) {
-    if (idx[k] === undefined) {
-      return { ok: [], erros: [`Coluna obrigatória ausente: ${k}`], ignorados: 0 };
-    }
-  }
+  if (rows.length < 2) return { ok: [], erros: ["aba de pessoas vazia"], ignorados: 0 };
+  const idx = mapHeader(rows);
   const ok: Pessoa[] = [];
   const erros: string[] = [];
   let ignorados = 0;
@@ -46,9 +72,8 @@ function parsePessoas(rows: any[][]): { ok: Pessoa[]; erros: string[]; ignorados
     }
     const cargoP = Cargo.safeParse(get("cargo"));
     const sexoP = Sexo.safeParse(get("sexo"));
-    const sitP = Situacao.safeParse(get("situacao"));
-    if (!cargoP.success || !sexoP.success || !sitP.success) {
-      erros.push(`linha ${r + 1}: valor inválido em cargo/sexo/situacao`);
+    if (!cargoP.success || !sexoP.success) {
+      erros.push(`linha ${r + 1}: valor inválido em cargo/sexo`);
       ignorados++; continue;
     }
     const p: Pessoa = {
@@ -57,12 +82,12 @@ function parsePessoas(rows: any[][]): { ok: Pessoa[]; erros: string[]; ignorados
       cpf: get("cpf")!,
       cargo: cargoP.data,
       sexo: sexoP.data,
-      situacao: sitP.data,
-      email: get("email")!,
       criadoEm: now,
       lockManual: {}
     };
-    for (const opt of ["dataNascimento","fatoRH","tipoSanguineo","dddTelefoneFixo","numTelefoneFixo","dddCel","celular","curso"] as const) {
+    const sitP = Situacao.safeParse(normSituacao(get("situacao")));
+    if (sitP.success) p.situacao = sitP.data;
+    for (const opt of ["email","dataNascimento","fatoRH","tipoSanguineo","dddTelefoneFixo","numTelefoneFixo","dddCel","celular","curso"] as const) {
       const v = get(opt); if (v) (p as any)[opt] = v;
     }
     ok.push(p);
@@ -93,9 +118,8 @@ const importarRoutes: FastifyPluginAsync = async (app) => {
     try { wb = XLSX.read(buf, { type: "buffer" }); }
     catch { return reply.code(400).send({ error: "xlsm inválido" }); }
 
-    const fic = wb.Sheets["FIC_COREC"];
-    if (!fic) return reply.code(400).send({ error: "aba FIC_COREC ausente" });
-    const rows = XLSX.utils.sheet_to_json<any[]>(fic, { header: 1, raw: false });
+    const rows = escolherAba(wb);
+    if (!rows) return reply.code(400).send({ error: "nenhuma aba com colunas de pessoas (nome/cpf/cargo/sexo) encontrada" });
     const { ok, erros, ignorados } = parsePessoas(rows);
 
     let alojamentos: Alojamento[] = [];
