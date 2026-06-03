@@ -39,6 +39,60 @@ async function buildApp() {
   return app;
 }
 
+describe("POST /api/importar/alojamentos", () => {
+  it("importa alojamentos do formato dedicado, auto-detectando a aba", async () => {
+    const app = await buildApp();
+    // pré-existente que deve ser substituído
+    app.db.data.alojamentos = [{ id: "X 99", bloco: "X", cargoSexo: "M", max: 2 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["nota", "irrelevante"]]), "Capa");
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["Alojamento", "Sexo", "MaximaOcupacao"],
+      ["A 01", "M", "6"],
+      ["G 02", "F", "4"]
+    ]);
+    XLSX.utils.book_append_sheet(wb, ws, "Planilha1");
+    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    const fd = new FormData();
+    fd.append("file", buf, { filename: "alojs.xlsx", contentType: "application/octet-stream" });
+    const r = await app.inject({
+      method: "POST", url: "/api/importar/alojamentos",
+      payload: fd, headers: fd.getHeaders()
+    });
+    expect(r.statusCode).toBe(200);
+    const body = r.json();
+    expect(body.inseridos).toBe(2);
+    // substituiu a lista (X 99 saiu)
+    expect(app.db.data.alojamentos).toHaveLength(2);
+    expect(app.db.data.alojamentos[0]).toMatchObject({ id: "A 01", bloco: "A", cargoSexo: "M", max: 6 });
+    expect(app.db.data.alojamentos[1]).toMatchObject({ id: "G 02", bloco: "G", cargoSexo: "F", max: 4 });
+  });
+
+  it("ignora linhas inválidas e relata", async () => {
+    const app = await buildApp();
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["Alojamento", "Sexo", "MaximaOcupacao"],
+      ["A 01", "X", "6"],   // sexo inválido
+      ["", "M", "6"],        // sem id
+      ["A 02", "M", "0"],    // max inválido
+      ["A 03", "F", "5"]     // ok
+    ]);
+    XLSX.utils.book_append_sheet(wb, ws, "qualquer");
+    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    const fd = new FormData();
+    fd.append("file", buf, { filename: "alojs.xlsx", contentType: "application/octet-stream" });
+    const r = await app.inject({
+      method: "POST", url: "/api/importar/alojamentos",
+      payload: fd, headers: fd.getHeaders()
+    });
+    const body = r.json();
+    expect(body.inseridos).toBe(1);
+    expect(body.ignorados).toBe(3);
+    expect(app.db.data.alojamentos).toHaveLength(1);
+  });
+});
+
 describe("POST /api/importar/xlsm", () => {
   it("importa pessoas e alojamentos da planilha", async () => {
     const app = await buildApp();

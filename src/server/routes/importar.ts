@@ -109,7 +109,87 @@ function parseAlojamentos(sheet: XLSX.WorkSheet): Alojamento[] {
   return out;
 }
 
+// --- Importação dedicada de alojamentos (arquivo só de alojamentos) ---
+const ALOJ_MAP: Record<string, string> = {
+  ALOJAMENTO: "id", ALOJ: "id", ID: "id", SALA: "id",
+  SEXO: "sexo",
+  MAXIMAOCUPACAO: "max", MAXOCUPACAO: "max", MAX: "max", MAXIMA: "max",
+  OCUPACAO: "max", CAPACIDADE: "max", MAXIMACAPACIDADE: "max", VAGAS: "max"
+};
+
+function normTok(h: unknown): string {
+  return String(h ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "").toUpperCase();
+}
+
+function mapAlojHeader(rows: any[][]): Record<string, number> {
+  const idx: Record<string, number> = {};
+  if (rows.length === 0) return idx;
+  rows[0]!.forEach((h, i) => { const k = ALOJ_MAP[normTok(h)]; if (k && idx[k] === undefined) idx[k] = i; });
+  return idx;
+}
+
+function blocoDe(id: string): string {
+  return id.split(/\s+/)[0]?.trim() || id;
+}
+
+function parseAlojamentosDominio(wb: XLSX.WorkBook): { ok: Alojamento[]; erros: string[]; ignorados: number } {
+  let melhor: { rows: any[][]; idx: Record<string, number>; score: number } | undefined;
+  for (const name of wb.SheetNames) {
+    const rows = XLSX.utils.sheet_to_json<any[]>(wb.Sheets[name]!, { header: 1, raw: false });
+    const idx = mapAlojHeader(rows);
+    if (idx.id === undefined || idx.sexo === undefined || idx.max === undefined) continue;
+    const score = Object.keys(idx).length;
+    if (!melhor || score > melhor.score) melhor = { rows, idx, score };
+  }
+  if (!melhor) {
+    return { ok: [], erros: ["nenhuma aba com colunas de alojamento (Alojamento/Sexo/MaximaOcupacao) encontrada"], ignorados: 0 };
+  }
+  const { rows, idx } = melhor;
+  const ok: Alojamento[] = [];
+  const erros: string[] = [];
+  const vistos = new Set<string>();
+  let ignorados = 0;
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r] ?? [];
+    const id = String(row[idx.id!] ?? "").trim();
+    const sexo = String(row[idx.sexo!] ?? "").trim().toUpperCase();
+    const maxRaw = String(row[idx.max!] ?? "").trim();
+    if (!id && !sexo && !maxRaw) continue; // linha em branco
+    const max = Number(maxRaw);
+    if (!id) { erros.push(`linha ${r + 1}: sem id`); ignorados++; continue; }
+    if (sexo !== "M" && sexo !== "F") { erros.push(`linha ${r + 1}: sexo inválido (${sexo})`); ignorados++; continue; }
+    if (!Number.isInteger(max) || max <= 0) { erros.push(`linha ${r + 1}: capacidade inválida`); ignorados++; continue; }
+    if (vistos.has(id)) { erros.push(`linha ${r + 1}: id duplicado (${id})`); ignorados++; continue; }
+    vistos.add(id);
+    ok.push({ id, bloco: blocoDe(id), cargoSexo: sexo, max });
+  }
+  return { ok, erros, ignorados };
+}
+
 const importarRoutes: FastifyPluginAsync = async (app) => {
+  app.post("/alojamentos", async (req, reply) => {
+    const file = await (req as any).file();
+    if (!file) return reply.code(400).send({ error: "arquivo ausente" });
+    const buf = await file.toBuffer();
+    let wb: XLSX.WorkBook;
+    try { wb = XLSX.read(buf, { type: "buffer" }); }
+    catch { return reply.code(400).send({ error: "arquivo inválido" }); }
+
+    const { ok, erros, ignorados } = parseAlojamentosDominio(wb);
+    if (ok.length === 0) return reply.code(400).send({ error: erros[0] ?? "nenhum alojamento válido", erros });
+
+    if (process.env.NODE_ENV !== "test" && app.db.data.alojamentos.length > 0) {
+      await backup(process.env.DB_PATH ?? "data/db.json");
+    }
+    app.db.data.alojamentos = ok;
+    app.db.data.meta.atualizadoEm = new Date().toISOString();
+    app.db.data.historico.push({
+      ts: new Date().toISOString(), acao: "import-alojamentos", detalhes: { inseridos: ok.length, ignorados }
+    });
+    await app.db.write();
+    return { inseridos: ok.length, ignorados, erros };
+  });
+
   app.post("/xlsm", async (req, reply) => {
     const file = await (req as any).file();
     if (!file) return reply.code(400).send({ error: "arquivo ausente" });

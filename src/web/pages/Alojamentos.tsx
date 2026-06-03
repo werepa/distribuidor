@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { DndContext, DragEndEvent, closestCenter } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { api } from "../api";
@@ -24,10 +25,19 @@ export default function AlojamentosPage() {
   const [alojs, setAlojs] = useState<Alojamento[]>([]);
   const [meta, setMeta] = useState<Meta | null>(null);
   const [filtro, setFiltro] = useState<FiltroAloj>(FILTRO_INICIAL);
+  const [modal, setModal] = useState<{ mode: "novo" } | { mode: "editar"; aloj: Alojamento } | null>(null);
 
   const recarregar = async () => {
     setPessoas(await api.pessoas.list());
     setAlojs(await api.alojamentos.list());
+  };
+
+  const excluir = async (a: Alojamento) => {
+    const ocupantes = (porAlojamento.get(a.id) ?? []).length;
+    const aviso = ocupantes > 0 ? ` ${ocupantes} pessoa(s) ficarão sem alojamento.` : "";
+    if (!confirm(`Excluir o alojamento ${a.id}?${aviso}`)) return;
+    await api.alojamentos.remove(a.id);
+    recarregar();
   };
   useEffect(() => {
     recarregar();
@@ -98,6 +108,11 @@ export default function AlojamentosPage() {
       <div className="flex justify-between mb-4 no-print">
         <h1 className="text-[34px] font-normal leading-none">Alojamentos <span className="text-ink-mute text-base">({alojsFiltrados.length}/{alojs.length})</span></h1>
         <div className="flex gap-2">
+          <ImportarAlojBtn onDone={recarregar} />
+          <button className="border px-3 py-1 rounded text-sm flex items-center gap-1 hover:bg-bone"
+            onClick={() => setModal({ mode: "novo" })}>
+            <Plus size={14} /> Adicionar
+          </button>
           <button className="bg-seal text-paper hover:bg-seal-deep px-3 py-1 rounded text-sm"
             onClick={async () => { await api.alojamentos.distribuir(); recarregar(); }}>
             ▶ Distribuir
@@ -158,9 +173,19 @@ export default function AlojamentosPage() {
                   const folga = a.max - ps.length;
                   return (
                     <div key={a.id} className="bg-ivory border-ivory-edge shadow-paper rounded-lg p-2">
-                      <div className="font-semibold text-sm flex justify-between mb-2">
+                      <div className="font-semibold text-sm flex justify-between items-center mb-2">
                         <span>{a.id} <span className="text-ink-mute font-normal">{a.cargoSexo}</span> <ViolationBadge msgs={violations} /></span>
-                        <span className="text-ink-mute text-xs">{ps.length}/{a.max} (folga {folga})</span>
+                        <span className="flex items-center gap-2">
+                          <span className="text-ink-mute text-xs">{ps.length}/{a.max} (folga {folga})</span>
+                          <button className="text-ink-mute hover:text-ink no-print" title="Editar alojamento"
+                            onClick={() => setModal({ mode: "editar", aloj: a })}>
+                            <Pencil size={13} />
+                          </button>
+                          <button className="text-ink-mute hover:text-seal no-print" title="Excluir alojamento"
+                            onClick={() => excluir(a)}>
+                            <Trash2 size={13} />
+                          </button>
+                        </span>
                       </div>
                       <SortableContext items={ps.map(p => p.id)} strategy={verticalListSortingStrategy} id={a.id}>
                         <DroppableZone id={a.id} isEmpty={ps.length === 0}
@@ -216,7 +241,119 @@ export default function AlojamentosPage() {
           </div>
         )}
       </div>
+
+      {modal && (
+        <AlojamentoModal
+          alojInicial={modal.mode === "editar" ? modal.aloj : undefined}
+          onClose={() => setModal(null)}
+          onSaved={() => { setModal(null); recarregar(); }} />
+      )}
     </div>
+  );
+}
+
+function sexoDoAloj(cargoSexo: string): "M" | "F" {
+  const s = (cargoSexo.split("/")[1] ?? cargoSexo).trim().toUpperCase();
+  return s === "F" ? "F" : "M";
+}
+
+function AlojamentoModal({ alojInicial, onClose, onSaved }: {
+  alojInicial?: Alojamento;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const editando = !!alojInicial;
+  const [id, setId] = useState(alojInicial?.id ?? "");
+  const [sexo, setSexo] = useState<"M" | "F">(alojInicial ? sexoDoAloj(alojInicial.cargoSexo) : "M");
+  const [max, setMax] = useState<number>(alojInicial?.max ?? 6);
+  const [salvando, setSalvando] = useState(false);
+
+  const salvar = async () => {
+    if (!id.trim()) { alert("Informe o identificador do alojamento (ex.: A 01)."); return; }
+    if (!Number.isInteger(max) || max <= 0) { alert("Capacidade deve ser um inteiro positivo."); return; }
+    setSalvando(true);
+    try {
+      if (editando) {
+        const patch: { sexo?: "M" | "F"; max?: number; novoId?: string } = { sexo, max };
+        if (id.trim() !== alojInicial!.id) patch.novoId = id.trim();
+        await api.alojamentos.update(alojInicial!.id, patch);
+      } else {
+        await api.alojamentos.create({ id: id.trim(), sexo, max });
+      }
+      onSaved();
+    } catch (err: any) {
+      alert(`Erro ao salvar: ${err.message}`);
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
+        <h2 className="text-lg font-semibold mb-4">
+          {editando ? "Editar alojamento" : "Adicionar alojamento"}
+        </h2>
+        <div className="space-y-3 text-sm">
+          <label className="block">
+            <span className="text-slate-600">Identificador *</span>
+            <input autoFocus className="border rounded px-2 py-1 w-full mt-1"
+              placeholder="ex.: A 01"
+              value={id}
+              onChange={e => setId(e.target.value.toUpperCase())} />
+            {editando && <span className="text-xs text-slate-400">alterar renomeia e atualiza as pessoas alocadas</span>}
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="text-slate-600">Sexo</span>
+              <select className="border rounded px-2 py-1 w-full mt-1"
+                value={sexo}
+                onChange={e => setSexo(e.target.value as "M" | "F")}>
+                <option>M</option><option>F</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-slate-600">Capacidade máxima *</span>
+              <input type="number" min={1} className="border rounded px-2 py-1 w-full mt-1"
+                value={max}
+                onChange={e => setMax(Number(e.target.value))} />
+            </label>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 mt-6">
+          <button className="px-3 py-1 rounded text-sm border" onClick={onClose} disabled={salvando}>
+            Cancelar
+          </button>
+          <button className="bg-wax hover:bg-wax-deep text-paper px-3 py-1 rounded text-sm disabled:opacity-50"
+            onClick={salvar} disabled={salvando}>
+            {salvando ? "Salvando…" : "Salvar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ImportarAlojBtn({ onDone }: { onDone: () => void }) {
+  return (
+    <label className="bg-seal text-paper hover:bg-seal-deep px-3 py-1 rounded text-sm cursor-pointer">
+      Importar xlsm
+      <input type="file" accept=".xlsm,.xlsx" className="hidden"
+        onChange={async e => {
+          const f = e.target.files?.[0];
+          if (!f) return;
+          try {
+            const r = await api.importar.alojamentos(f);
+            alert(`Inseridos: ${r.inseridos}\nIgnorados: ${r.ignorados}` +
+              (r.erros.length ? `\nErros:\n${r.erros.join("\n")}` : ""));
+            onDone();
+          } catch (err: any) {
+            alert(`Erro ao importar: ${err.message}`);
+          } finally {
+            e.target.value = "";
+          }
+        }} />
+    </label>
   );
 }
 

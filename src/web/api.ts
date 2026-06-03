@@ -34,7 +34,13 @@ export const api = {
     list: () => req<Alojamento[]>("/alojamentos"),
     distribuir: () => req<{ ok: true }>("/alojamentos/distribuir", { method: "POST" }),
     mover: (id: string, alojamentoId: string | null, lock = true) =>
-      req(`/alojamentos/pessoa/${id}`, { method: "PATCH", body: JSON.stringify({ alojamentoId, lock }) })
+      req(`/alojamentos/pessoa/${id}`, { method: "PATCH", body: JSON.stringify({ alojamentoId, lock }) }),
+    create: (a: { id: string; sexo: "M" | "F"; max: number }) =>
+      req<Alojamento>("/alojamentos", { method: "POST", body: JSON.stringify(a) }),
+    update: (id: string, patch: { sexo?: "M" | "F"; max?: number; novoId?: string }) =>
+      req<Alojamento>(`/alojamentos/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    remove: (id: string) =>
+      req<{ ok: true }>(`/alojamentos/${encodeURIComponent(id)}`, { method: "DELETE" })
   },
   nomesGuerra: {
     gerar: () => req<{ ok: true }>("/nomes-guerra/gerar", { method: "POST" }),
@@ -61,6 +67,13 @@ export const api = {
       const fd = new FormData();
       fd.append("file", file);
       const r = await fetch(`${BASE}/importar/xlsm`, { method: "POST", body: fd });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    alojamentos: async (file: File): Promise<{ inseridos: number; ignorados: number; erros: string[] }> => {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await fetch(`${BASE}/importar/alojamentos`, { method: "POST", body: fd });
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     }

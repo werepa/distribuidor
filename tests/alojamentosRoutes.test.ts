@@ -43,6 +43,81 @@ describe("rotas /api/alojamentos", () => {
     expect(app.db.data.pessoas.every(p => p.alojamentoId === "A 01")).toBe(true);
   });
 
+  it("POST / cria alojamento (cargoSexo = sexo, bloco derivado)", async () => {
+    const app = await buildApp();
+    const r = await app.inject({
+      method: "POST", url: "/api/alojamentos",
+      payload: { id: "A 01", sexo: "M", max: 6 }
+    });
+    expect(r.statusCode).toBe(201);
+    expect(app.db.data.alojamentos).toHaveLength(1);
+    const a = app.db.data.alojamentos[0];
+    expect(a).toMatchObject({ id: "A 01", bloco: "A", cargoSexo: "M", max: 6 });
+  });
+
+  it("POST / rejeita id duplicado", async () => {
+    const app = await buildApp(db => {
+      db.data.alojamentos = [{ id: "A 01", bloco: "A", cargoSexo: "M", max: 6 }];
+    });
+    const r = await app.inject({
+      method: "POST", url: "/api/alojamentos",
+      payload: { id: "A 01", sexo: "M", max: 4 }
+    });
+    expect(r.statusCode).toBe(409);
+    expect(app.db.data.alojamentos).toHaveLength(1);
+  });
+
+  it("PATCH /:id altera sexo e capacidade", async () => {
+    const app = await buildApp(db => {
+      db.data.alojamentos = [{ id: "A 01", bloco: "A", cargoSexo: "M", max: 6 }];
+    });
+    const r = await app.inject({
+      method: "PATCH", url: `/api/alojamentos/${encodeURIComponent("A 01")}`,
+      payload: { sexo: "F", max: 4 }
+    });
+    expect(r.statusCode).toBe(200);
+    expect(app.db.data.alojamentos[0]).toMatchObject({ id: "A 01", cargoSexo: "F", max: 4 });
+  });
+
+  it("PATCH /:id renomeia id com cascata nas pessoas", async () => {
+    const app = await buildApp(db => {
+      db.data.alojamentos = [{ id: "A 01", bloco: "A", cargoSexo: "M", max: 6 }];
+      db.data.pessoas = [{ ...mkP("A"), alojamentoId: "A 01" }];
+    });
+    const r = await app.inject({
+      method: "PATCH", url: `/api/alojamentos/${encodeURIComponent("A 01")}`,
+      payload: { novoId: "B 02" }
+    });
+    expect(r.statusCode).toBe(200);
+    expect(app.db.data.alojamentos[0]).toMatchObject({ id: "B 02", bloco: "B" });
+    expect(app.db.data.pessoas[0].alojamentoId).toBe("B 02");
+  });
+
+  it("PATCH /:id rejeita renomear para id existente", async () => {
+    const app = await buildApp(db => {
+      db.data.alojamentos = [
+        { id: "A 01", bloco: "A", cargoSexo: "M", max: 6 },
+        { id: "A 02", bloco: "A", cargoSexo: "M", max: 6 }
+      ];
+    });
+    const r = await app.inject({
+      method: "PATCH", url: `/api/alojamentos/${encodeURIComponent("A 01")}`,
+      payload: { novoId: "A 02" }
+    });
+    expect(r.statusCode).toBe(409);
+  });
+
+  it("DELETE /:id remove e zera alojamentoId das pessoas", async () => {
+    const app = await buildApp(db => {
+      db.data.alojamentos = [{ id: "A 01", bloco: "A", cargoSexo: "M", max: 6 }];
+      db.data.pessoas = [{ ...mkP("A"), alojamentoId: "A 01" }];
+    });
+    const r = await app.inject({ method: "DELETE", url: `/api/alojamentos/${encodeURIComponent("A 01")}` });
+    expect(r.statusCode).toBe(200);
+    expect(app.db.data.alojamentos).toHaveLength(0);
+    expect(app.db.data.pessoas[0].alojamentoId).toBeUndefined();
+  });
+
   it("PATCH /pessoa/:id seta alojamentoId e lock", async () => {
     const app = await buildApp(db => {
       db.data.alojamentos = [
