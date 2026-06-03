@@ -6,6 +6,7 @@ import { v4 as uuid } from "uuid";
 const cfg: Config = {
   turmasPorCargo: { APF: 2, DPF: 0, EPF: 0, PCF: 0, PPF: 0 },
   criterioDistribuicao: "completar",
+  criterioAlojamento: "dividido",
   folgaAlojamento: 0.15,
   normalizacoesFoneticas: [], stopWordsNomeGuerra: ["DE"]
 };

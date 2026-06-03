@@ -20,6 +20,95 @@ function ordenarAlojamentosPara(sexo: "M" | "F", alojs: Alojamento[]): Alojament
   });
 }
 
+// Aloca um grupo de pessoas livres nas salas dadas (já ordenadas), usando o mapa
+// de ocupação compartilhado (semeado com pessoas travadas). Duas fases:
+// 1) round-robin até a capacidade efetiva (com folga); 2) overflow até o max.
+function alocarGrupo(livres: Pessoa[], salas: Alojamento[], ocup: Map<string, number>, cfg: Config): void {
+  if (salas.length === 0) return;
+  const ordered = [...livres].sort(
+    (a, b) => a.cargo.localeCompare(b.cargo) || a.nome.localeCompare(b.nome, "pt-BR")
+  );
+  const capEf = new Map(salas.map(a => [a.id, Math.max(1, Math.floor(a.max * (1 - cfg.folgaAlojamento)))]));
+
+  let i = 0;
+  for (const p of ordered) {
+    let tentadas = 0;
+    while (tentadas < salas.length) {
+      const a = salas[i % salas.length]!;
+      if (compativel(p, a) && (ocup.get(a.id) ?? 0) < capEf.get(a.id)!) {
+        p.alojamentoId = a.id;
+        ocup.set(a.id, (ocup.get(a.id) ?? 0) + 1);
+        i++;
+        break;
+      }
+      i++; tentadas++;
+    }
+  }
+
+  let j = 0;
+  for (const p of ordered) {
+    if (p.alojamentoId) continue;
+    let tentadas = 0;
+    while (tentadas < salas.length) {
+      const a = salas[j % salas.length]!;
+      if (compativel(p, a) && (ocup.get(a.id) ?? 0) < a.max) {
+        p.alojamentoId = a.id;
+        ocup.set(a.id, (ocup.get(a.id) ?? 0) + 1);
+        j++;
+        break;
+      }
+      j++; tentadas++;
+    }
+  }
+}
+
+// Agrupa pessoas pela chave, devolvendo um Map em ordem determinística de chave.
+function agruparPessoas(livres: Pessoa[], chave: (p: Pessoa) => string): Map<string, Pessoa[]> {
+  const m = new Map<string, Pessoa[]>();
+  for (const p of livres) {
+    const k = chave(p);
+    if (!m.has(k)) m.set(k, []);
+    m.get(k)!.push(p);
+  }
+  return new Map([...m.entries()].sort((a, b) => a[0].localeCompare(b[0])));
+}
+
+// Particiona as salas entre os grupos sem compartilhar sala entre grupos distintos.
+// Salas que já contêm pessoa travada são reservadas ao grupo dessa pessoa.
+function particionarSalas(
+  ordenados: Alojamento[],
+  grupos: Map<string, Pessoa[]>,
+  travados: Pessoa[],
+  chave: (p: Pessoa) => string
+): Map<string, Alojamento[]> {
+  const result = new Map<string, Alojamento[]>();
+  const usadas = new Set<string>();
+
+  for (const a of ordenados) {
+    const locked = travados.find(p => p.alojamentoId === a.id);
+    if (locked) {
+      const k = chave(locked);
+      if (!result.has(k)) result.set(k, []);
+      result.get(k)!.push(a);
+      usadas.add(a.id);
+    }
+  }
+
+  const livresSalas = ordenados.filter(a => !usadas.has(a.id));
+  let ptr = 0;
+  for (const [k, membros] of grupos) {
+    const atual = result.get(k) ?? [];
+    let cap = atual.reduce((s, a) => s + a.max, 0);
+    while (cap < membros.length && ptr < livresSalas.length) {
+      const a = livresSalas[ptr++]!;
+      atual.push(a);
+      cap += a.max;
+    }
+    result.set(k, atual);
+  }
+  return result;
+}
+
 export function distribuirAlojamentos(pessoas: Pessoa[], alojamentos: Alojamento[], cfg: Config): Pessoa[] {
   const out = pessoas.map(p => ({ ...p, lockManual: { ...p.lockManual } }));
 
@@ -36,44 +125,21 @@ export function distribuirAlojamentos(pessoas: Pessoa[], alojamentos: Alojamento
     const travados = doSexo.filter(p => p.lockManual.alojamento);
     livres.forEach(p => { p.alojamentoId = undefined; });
 
-    const capEfetiva = ordenados.map(a => Math.max(1, Math.floor(a.max * (1 - cfg.folgaAlojamento))));
-    const ocup = ordenados.map(a => travados.filter(p => p.alojamentoId === a.id).length);
+    const ocup = new Map<string, number>();
+    for (const a of ordenados) ocup.set(a.id, travados.filter(p => p.alojamentoId === a.id).length);
 
-    livres.sort((a, b) => a.cargo.localeCompare(b.cargo) || a.nome.localeCompare(b.nome, "pt-BR"));
-
-    // Phase 1: round-robin up to capEfetiva
-    let i = 0;
-    for (const p of livres) {
-      let tentadas = 0;
-      while (tentadas < ordenados.length) {
-        const slot = i % ordenados.length;
-        const a = ordenados[slot]!;
-        if (compativel(p, a) && ocup[slot]! < capEfetiva[slot]!) {
-          p.alojamentoId = a.id;
-          ocup[slot]!++;
-          i++;
-          break;
-        }
-        i++; tentadas++;
+    if (cfg.criterioAlojamento === "cargo" || cfg.criterioAlojamento === "cargo-turma") {
+      const chave: (p: Pessoa) => string = cfg.criterioAlojamento === "cargo"
+        ? p => p.cargo
+        : p => `${p.cargo}|${p.turmaId ?? ""}`;
+      const grupos = agruparPessoas(livres, chave);
+      const salasPorGrupo = particionarSalas(ordenados, grupos, travados, chave);
+      for (const [k, membros] of grupos) {
+        alocarGrupo(membros, salasPorGrupo.get(k) ?? [], ocup, cfg);
       }
-    }
-
-    // Phase 2: overflow — also round-robin up to max
-    let j = 0;
-    for (const p of livres) {
-      if (p.alojamentoId) continue;
-      let tentadas = 0;
-      while (tentadas < ordenados.length) {
-        const slot = j % ordenados.length;
-        const a = ordenados[slot]!;
-        if (compativel(p, a) && ocup[slot]! < a.max) {
-          p.alojamentoId = a.id;
-          ocup[slot]!++;
-          j++;
-          break;
-        }
-        j++; tentadas++;
-      }
+    } else {
+      // "dividido" (padrão): um único grupo por sexo, espalhando ao máximo.
+      alocarGrupo(livres, ordenados, ocup, cfg);
     }
   }
 

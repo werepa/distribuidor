@@ -21,6 +21,7 @@ function pessoa(p: Partial<Pessoa>): Pessoa {
 const baseConfig: Config = {
   turmasPorCargo: { APF: 2, DPF: 1, EPF: 0, PCF: 0, PPF: 0 },
   criterioDistribuicao: "completar",
+  criterioAlojamento: "dividido",
   folgaAlojamento: 0.15,
   normalizacoesFoneticas: [],
   stopWordsNomeGuerra: []

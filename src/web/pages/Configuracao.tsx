@@ -117,6 +117,16 @@ export default function ConfiguracaoPage() {
                 <option value="round-robin">Round-robin (um em cada por vez)</option>
               </select>
             </Field>
+            <Field label="Critério para alojamentos">
+              <select
+                className="border border-slate-300 rounded-md px-3 py-2 w-full bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={config.criterioAlojamento}
+                onChange={e => upConfig({ criterioAlojamento: e.target.value as Config["criterioAlojamento"] })}>
+                <option value="dividido">Mais dividido possível (espalha e mistura)</option>
+                <option value="cargo">Por cargo (sala só com o mesmo cargo)</option>
+                <option value="cargo-turma">Por cargo e turma (mesmo cargo e mesma turma)</option>
+              </select>
+            </Field>
             <Field label="Folga de alojamento" hint="0 = lotação total · 0.15 = 15% de vagas livres">
               <div className="flex items-center gap-2">
                 <input type="number" step="0.05" min={0} max={0.9}
