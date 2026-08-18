@@ -4,7 +4,7 @@ import type { Pessoa, Alojamento, Config } from "../src/shared/schemas";
 import { v4 as uuid } from "uuid";
 
 const cfg: Config = {
-  turmasPorCargo: { APF: 1, DPF: 1, EPF: 1, PCF: 1, PPF: 1 },
+  turmasPorCargo: { APF: [1], DPF: [1], EPF: [1], PCF: [1], PPF: [1] },
   criterioDistribuicao: "completar",
   criterioAlojamento: "dividido",
   folgaAlojamento: 0.15,

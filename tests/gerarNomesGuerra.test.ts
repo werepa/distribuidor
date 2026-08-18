@@ -4,14 +4,14 @@ import type { Pessoa, Config } from "../src/shared/schemas";
 import { v4 as uuid } from "uuid";
 
 const cfg: Config = {
-  turmasPorCargo: { APF: 1, DPF: 1, EPF: 0, PCF: 0, PPF: 0 },
+  turmasPorCargo: { APF: [30], DPF: [30], EPF: [], PCF: [], PPF: [] },
   criterioDistribuicao: "completar",
   criterioAlojamento: "dividido",
   folgaAlojamento: 0.15,
   normalizacoesFoneticas: [
     { de: "TH", para: "T" }, { de: "LUIZ", para: "LUIS" }, { de: "VICTOR", para: "VITOR" }
   ],
-  stopWordsNomeGuerra: ["DE", "DI", "DO", "DOS", "E", "D", "SAO"]
+  stopWordsNomeGuerra: ["DE", "DA", "DI", "DO", "DOS", "E", "D", "D'", "SAO"]
 };
 
 const mkP = (nome: string, turmaId = "APF-1", sexo: "M" | "F" = "M", cargo: any = "APF", lock = false): Pessoa => ({
@@ -43,6 +43,26 @@ describe("gerarNomesGuerra", () => {
     const ps = [mkP("CARLOS DE OLIVEIRA", "APF-1")];
     const r = gerarNomesGuerra(ps, cfg);
     expect(r[0]!.nomeGuerra).not.toBe("DE");
+  });
+
+  it("combina DA com a palavra seguinte quando os nomes simples já estão ocupados", () => {
+    const ocupCarlos = mkP("CARLOS AMARAL", "APF-1", "M", "APF", true);
+    ocupCarlos.nomeGuerra = "CARLOS";
+    const ocupSilva = mkP("PAULO SILVA", "APF-1", "M", "APF", true);
+    ocupSilva.nomeGuerra = "SILVA";
+    const alvo = mkP("CARLOS DA SILVA", "APF-1");
+    const r = gerarNomesGuerra([ocupCarlos, ocupSilva, alvo], cfg);
+    expect(r.find(p => p.nome === "CARLOS DA SILVA")?.nomeGuerra).toBe("DA SILVA");
+  });
+
+  it("combina D' com a palavra seguinte quando os nomes simples já estão ocupados", () => {
+    const ocupPedro = mkP("PEDRO AMARAL", "APF-1", "M", "APF", true);
+    ocupPedro.nomeGuerra = "PEDRO";
+    const ocupAvila = mkP("JOAO AVILA", "APF-1", "M", "APF", true);
+    ocupAvila.nomeGuerra = "AVILA";
+    const alvo = mkP("PEDRO D' AVILA", "APF-1");
+    const r = gerarNomesGuerra([ocupPedro, ocupAvila, alvo], cfg);
+    expect(r.find(p => p.nome === "PEDRO D' AVILA")?.nomeGuerra).toBe("D' AVILA");
   });
 
   it("forma nome composto se simples conflita", () => {

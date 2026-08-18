@@ -39,7 +39,8 @@ export const TurmaSchema = z.object({
   id: z.string().min(1),
   cargo: Cargo,
   numero: z.number().int().positive(),
-  label: z.string().min(1)
+  label: z.string().min(1),
+  capacidade: z.number().int().positive().optional()
 });
 
 export const AlojamentoSchema = z.object({
@@ -51,11 +52,11 @@ export const AlojamentoSchema = z.object({
 
 export const ConfigSchema = z.object({
   turmasPorCargo: z.object({
-    APF: z.number().int().nonnegative(),
-    DPF: z.number().int().nonnegative(),
-    EPF: z.number().int().nonnegative(),
-    PCF: z.number().int().nonnegative(),
-    PPF: z.number().int().nonnegative()
+    APF: z.array(z.number().int().positive()),
+    DPF: z.array(z.number().int().positive()),
+    EPF: z.array(z.number().int().positive()),
+    PCF: z.array(z.number().int().positive()),
+    PPF: z.array(z.number().int().positive())
   }),
   criterioDistribuicao: Criterio,
   criterioAlojamento: CriterioAlojamento.default("dividido"),
@@ -94,7 +95,7 @@ export type DB = z.infer<typeof DBSchema>;
 export type Meta = z.infer<typeof MetaSchema>;
 
 export const DEFAULT_CONFIG: Config = {
-  turmasPorCargo: { APF: 1, DPF: 1, EPF: 1, PCF: 1, PPF: 1 },
+  turmasPorCargo: { APF: [30], DPF: [30], EPF: [30], PCF: [30], PPF: [30] },
   criterioDistribuicao: "completar",
   criterioAlojamento: "dividido",
   folgaAlojamento: 0.15,
@@ -109,5 +110,5 @@ export const DEFAULT_CONFIG: Config = {
     { de: "RACHEL", para: "RAQUEL" },
     { de: "VICTOR", para: "VITOR" }
   ],
-  stopWordsNomeGuerra: ["DE", "DI", "DO", "DOS", "E", "D", "SAO"]
+  stopWordsNomeGuerra: ["DE", "DA", "DI", "DO", "DOS", "E", "D", "D'", "SAO"]
 };

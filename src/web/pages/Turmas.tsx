@@ -57,6 +57,22 @@ export default function TurmasPage() {
     api.config.meta().then(setMeta);
   }, []);
 
+  const cargosNaBarra = useMemo(() => {
+    const vistos = new Set<string>();
+    const out: { cargo: string; primeiraTurmaId: string }[] = [];
+    turmas.forEach(t => {
+      if (vistos.has(t.cargo)) return;
+      vistos.add(t.cargo);
+      out.push({ cargo: t.cargo, primeiraTurmaId: t.id });
+    });
+    return out;
+  }, [turmas]);
+
+  const irParaCargo = (turmaId: string) => {
+    document.getElementById(`turma-col-${turmaId}`)
+      ?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+  };
+
   const semTurma = useMemo(() => pessoas.filter(p => !p.turmaId), [pessoas]);
   const porTurma = useMemo(() => {
     const m = new Map<string, Pessoa[]>();
@@ -111,6 +127,19 @@ export default function TurmasPage() {
         </div>
       )}
 
+      {/* BARRA DE NAVEGAÇÃO — pular para turmas fora da área visível */}
+      {cargosNaBarra.length > 1 && (
+        <div className="flex gap-1 mb-2 no-print">
+          {cargosNaBarra.map(({ cargo, primeiraTurmaId }) => (
+            <button key={cargo}
+              className="px-2 py-1 rounded text-xs font-medium bg-ivory border border-ivory-edge hover:bg-seal hover:text-paper transition-colors"
+              onClick={() => irParaCargo(primeiraTurmaId)}>
+              {cargo}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* KANBAN (apenas tela) */}
       <DndContext collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <div className="flex gap-3 overflow-x-auto pb-4 kanban-row screen-only">
@@ -121,10 +150,10 @@ export default function TurmasPage() {
               ...(violacoesPorTurma.get(t.id) ?? [])
             ];
             return (
-              <div key={t.id} className="min-w-[180px] bg-ivory border-ivory-edge shadow-paper rounded-lg p-2">
+              <div key={t.id} id={`turma-col-${t.id}`} className="min-w-[180px] bg-ivory border-ivory-edge shadow-paper rounded-lg p-2">
                 <div className="font-semibold text-sm mb-2 flex justify-between">
                   <span>{t.label} <ViolationBadge msgs={violations} /></span>
-                  <span className="text-ink-mute text-xs">{ps.length}</span>
+                  <span className="text-ink-mute text-xs">{ps.length}{t.capacidade ? `/${t.capacidade}` : ""}</span>
                 </div>
                 <SortableContext items={ps.map(p => p.id)} strategy={verticalListSortingStrategy} id={t.id}>
                   <DroppableZone id={t.id} isEmpty={ps.length === 0}

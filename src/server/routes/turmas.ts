@@ -3,18 +3,20 @@ import { z } from "zod";
 import { Cargo, type Turma } from "../../shared/schemas.js";
 import { distribuirTurmas } from "../domain/distribuirTurmas.js";
 
-function gerarTurmas(cfg: { turmasPorCargo: Record<string, number> }): Turma[] {
+function gerarTurmas(cfg: { turmasPorCargo: Record<string, number[]> }): Turma[] {
   const out: Turma[] = [];
   for (const cargo of Cargo.options) {
-    const n = cfg.turmasPorCargo[cargo] ?? 0;
-    for (let i = 1; i <= n; i++) {
+    const caps = cfg.turmasPorCargo[cargo] ?? [];
+    caps.forEach((capacidade, idx) => {
+      const i = idx + 1;
       out.push({
         id: `${cargo}-${i}`,
         cargo,
         numero: i,
-        label: `${cargo}-${String.fromCharCode(64 + i)}`
+        label: `${cargo}-${String.fromCharCode(64 + i)}`,
+        capacidade
       });
-    }
+    });
   }
   return out;
 }

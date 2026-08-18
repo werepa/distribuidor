@@ -43,7 +43,8 @@ export default function ConfiguracaoPage() {
     }
   };
 
-  const totalTurmas = CARGOS.reduce((s, c) => s + (config.turmasPorCargo[c] || 0), 0);
+  const totalTurmas = CARGOS.reduce((s, c) => s + config.turmasPorCargo[c].length, 0);
+  const totalVagas = CARGOS.reduce((s, c) => s + config.turmasPorCargo[c].reduce((a, b) => a + b, 0), 0);
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -86,18 +87,57 @@ export default function ConfiguracaoPage() {
       <Card icon={<GraduationCap size={18} />}>
         <CardHeader
           title="Turmas por cargo"
-          subtitle={`${totalTurmas} turma${totalTurmas === 1 ? "" : "s"} no total`} />
+          subtitle={`${totalTurmas} turma${totalTurmas === 1 ? "" : "s"} · ${totalVagas} vaga${totalVagas === 1 ? "" : "s"} no total`} />
         <CardBody>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <p className="text-xs text-slate-500 mb-3">
+            Cada linha é uma turma; o número é a quantidade de pessoas planejada para ela. O tamanho pode variar entre turmas do mesmo cargo.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             {CARGOS.map(c => (
-              <Field key={c} label={c}>
-                <input type="number" min={0}
-                  className="border border-slate-300 rounded-md px-3 py-2 w-full text-center font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  value={config.turmasPorCargo[c]}
-                  onChange={e => upConfig({
-                    turmasPorCargo: { ...config.turmasPorCargo, [c]: Number(e.target.value) || 0 }
-                  })} />
-              </Field>
+              <div key={c}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium text-slate-700 uppercase tracking-wide">{c}</span>
+                  <button
+                    aria-label={`Adicionar turma em ${c}`}
+                    title="Adicionar turma"
+                    className="text-blue-600 hover:text-blue-700"
+                    onClick={() => upConfig({
+                      turmasPorCargo: { ...config.turmasPorCargo, [c]: [...config.turmasPorCargo[c], 30] }
+                    })}>
+                    <Plus size={14} />
+                  </button>
+                </div>
+                <div className="flex flex-col gap-1">
+                  {config.turmasPorCargo[c].map((capacidade, i) => (
+                    <div key={i} className="flex items-center gap-1 group">
+                      <span className="text-xs text-slate-400 w-4 shrink-0">{String.fromCharCode(65 + i)}</span>
+                      <input type="number" min={1}
+                        className="border border-slate-300 rounded-md px-2 py-1.5 w-full text-center font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        value={capacidade}
+                        onChange={e => {
+                          const arr = [...config.turmasPorCargo[c]];
+                          arr[i] = Number(e.target.value) || 0;
+                          upConfig({ turmasPorCargo: { ...config.turmasPorCargo, [c]: arr } });
+                        }} />
+                      <button
+                        aria-label={`Remover turma ${c}-${String.fromCharCode(65 + i)}`}
+                        title="Remover turma"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-100 text-red-600 shrink-0"
+                        onClick={() => upConfig({
+                          turmasPorCargo: {
+                            ...config.turmasPorCargo,
+                            [c]: config.turmasPorCargo[c].filter((_, j) => j !== i)
+                          }
+                        })}>
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  {config.turmasPorCargo[c].length === 0 && (
+                    <p className="text-xs text-slate-400 italic">Nenhuma turma</p>
+                  )}
+                </div>
+              </div>
             ))}
           </div>
         </CardBody>

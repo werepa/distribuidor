@@ -19,12 +19,9 @@ export function distribuirTurmas(pessoas: Pessoa[], turmas: Turma[], cfg: Config
 
     livres.forEach(p => { p.turmaId = undefined; });
 
-    const total = doCargo.length;
     const n = turmasC.length;
-    const base = Math.floor(total / n);
-    const sobra = total - base * n;
-    const cap: number[] = Array.from({ length: n }, () => base);
-    if (sobra > 0) cap[n - 1] = base + sobra;
+    const capsConfig = cfg.turmasPorCargo[cargo] ?? [];
+    const cap: number[] = Array.from({ length: n }, (_, i) => capsConfig[i] ?? 0);
 
     const atual: number[] = Array.from({ length: n }, () => 0);
     for (const p of travados) {
@@ -59,8 +56,11 @@ export function distribuirTurmas(pessoas: Pessoa[], turmas: Turma[], cfg: Config
       let slot = 0;
       for (const p of bRest) {
         while (slot < n && atual[slot]! >= cap[slot]!) slot++;
-        if (slot >= n) slot = atual.findIndex((c, i) => c < cap[i]!);
-        if (slot < 0) slot = 0;
+        if (slot >= n) {
+          const abaixoDaCapacidade = atual.findIndex((c, i) => c < cap[i]!);
+          // todas as turmas já atingiram a capacidade configurada: a sobra vai para a última
+          slot = abaixoDaCapacidade >= 0 ? abaixoDaCapacidade : n - 1;
+        }
         p.turmaId = turmasC[slot]!.id;
         atual[slot]!++;
       }

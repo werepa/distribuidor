@@ -27,7 +27,7 @@ const mkP = (n: string, extra: Partial<Pessoa> = {}): Pessoa => ({
 describe("rotas /api/turmas", () => {
   it("GET / lista turmas geradas pela config", async () => {
     const app = await buildApp(db => {
-      db.data.config.turmasPorCargo = { APF: 2, DPF: 1, EPF: 0, PCF: 0, PPF: 0 };
+      db.data.config.turmasPorCargo = { APF: [30, 30], DPF: [30], EPF: [], PCF: [], PPF: [] };
     });
     const r = await app.inject({ method: "GET", url: "/api/turmas" });
     expect(r.statusCode).toBe(200);
@@ -38,7 +38,7 @@ describe("rotas /api/turmas", () => {
 
   it("POST /distribuir aplica algoritmo e persiste turmaId em pessoas", async () => {
     const app = await buildApp(db => {
-      db.data.config.turmasPorCargo = { APF: 2, DPF: 0, EPF: 0, PCF: 0, PPF: 0 };
+      db.data.config.turmasPorCargo = { APF: [30, 30], DPF: [], EPF: [], PCF: [], PPF: [] };
       db.data.pessoas = [mkP("A"), mkP("B"), mkP("C"), mkP("D")];
     });
     const r = await app.inject({ method: "POST", url: "/api/turmas/distribuir" });
@@ -49,7 +49,7 @@ describe("rotas /api/turmas", () => {
 
   it("PATCH /pessoa/:id/turma seta turmaId e lockManual.turma=true", async () => {
     const app = await buildApp(db => {
-      db.data.config.turmasPorCargo = { APF: 2, DPF: 0, EPF: 0, PCF: 0, PPF: 0 };
+      db.data.config.turmasPorCargo = { APF: [30, 30], DPF: [], EPF: [], PCF: [], PPF: [] };
       db.data.pessoas = [mkP("A")];
     });
     const id = app.db.data.pessoas[0].id;

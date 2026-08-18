@@ -41,7 +41,7 @@ describe("DBSchema", () => {
       version: 1,
       meta: { edicao: "CFP 2026", criadoEm: "2026-05-13T00:00:00Z", atualizadoEm: "2026-05-13T00:00:00Z" },
       config: {
-        turmasPorCargo: { APF: 1, DPF: 1, EPF: 1, PCF: 1, PPF: 1 },
+        turmasPorCargo: { APF: [1], DPF: [1], EPF: [1], PCF: [1], PPF: [1] },
         criterioDistribuicao: "completar",
         folgaAlojamento: 0.15,
         normalizacoesFoneticas: [],

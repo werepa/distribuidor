@@ -4,7 +4,7 @@ import type { Pessoa, Turma, Alojamento, Config } from "../src/shared/schemas";
 import { v4 as uuid } from "uuid";
 
 const cfg: Config = {
-  turmasPorCargo: { APF: 2, DPF: 0, EPF: 0, PCF: 0, PPF: 0 },
+  turmasPorCargo: { APF: [2, 5], DPF: [], EPF: [], PCF: [], PPF: [] },
   criterioDistribuicao: "completar",
   criterioAlojamento: "dividido",
   folgaAlojamento: 0.15,
@@ -25,9 +25,9 @@ const mkP = (nome: string, turmaId?: string, alojamentoId?: string): Pessoa => (
 });
 
 describe("redistribuirIncremental", () => {
-  it("insere na turma com menor contagem", () => {
+  it("insere na próxima turma quando a primeira já atingiu a capacidade configurada", () => {
     const existentes = [
-      mkP("A", "APF-1"), mkP("B", "APF-1"),
+      mkP("A", "APF-1"), mkP("B", "APF-1"), // APF-1 já está na capacidade (2)
       mkP("C", "APF-2")
     ];
     const nova = mkP("Z");

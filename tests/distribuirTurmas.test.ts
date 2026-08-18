@@ -19,7 +19,7 @@ function pessoa(p: Partial<Pessoa>): Pessoa {
 }
 
 const baseConfig: Config = {
-  turmasPorCargo: { APF: 2, DPF: 1, EPF: 0, PCF: 0, PPF: 0 },
+  turmasPorCargo: { APF: [2, 2], DPF: [1], EPF: [], PCF: [], PPF: [] },
   criterioDistribuicao: "completar",
   criterioAlojamento: "dividido",
   folgaAlojamento: 0.15,
@@ -30,9 +30,10 @@ const baseConfig: Config = {
 function turmasFor(cfg: Config): Turma[] {
   const out: Turma[] = [];
   (Object.keys(cfg.turmasPorCargo) as Array<keyof typeof cfg.turmasPorCargo>).forEach(c => {
-    for (let i = 1; i <= cfg.turmasPorCargo[c]; i++) {
-      out.push({ id: `${c}-${i}`, cargo: c as any, numero: i, label: `${c}-${String.fromCharCode(64 + i)}` });
-    }
+    cfg.turmasPorCargo[c].forEach((capacidade, idx) => {
+      const i = idx + 1;
+      out.push({ id: `${c}-${i}`, cargo: c as any, numero: i, label: `${c}-${String.fromCharCode(64 + i)}`, capacidade });
+    });
   });
   return out;
 }
@@ -47,13 +48,13 @@ describe("distribuirTurmas — critério completar", () => {
     expect(t2.length).toBe(2);
   });
 
-  it("ímpar permite apenas uma turma com tamanho ímpar (a última)", () => {
+  it("sobra além da capacidade configurada vai para a última turma", () => {
     const pessoas = ["A","B","C","D","E"].map(n => pessoa({ nome: n, cargo: "APF" }));
     const r = distribuirTurmas(pessoas, turmasFor(baseConfig), baseConfig);
     const t1 = r.filter(p => p.turmaId === "APF-1").length;
     const t2 = r.filter(p => p.turmaId === "APF-2").length;
-    expect([t1, t2].sort()).toEqual([2, 3]);
-    expect(t2).toBe(3); // a última recebe o ímpar
+    expect(t1).toBe(2); // respeita a capacidade configurada (2)
+    expect(t2).toBe(3); // absorve a 5ª pessoa além da capacidade
   });
 
   it("ordena alfabeticamente dentro do cargo", () => {
@@ -116,9 +117,8 @@ describe("distribuirTurmas — locks", () => {
   });
 
   it("cargo com 1 pessoa só vai pra única turma", () => {
-    const cfg = { ...baseConfig, turmasPorCargo: { ...baseConfig.turmasPorCargo, DPF: 1 } };
     const pessoas = [pessoa({ nome: "X", cargo: "DPF" })];
-    const r = distribuirTurmas(pessoas, turmasFor(cfg), cfg);
+    const r = distribuirTurmas(pessoas, turmasFor(baseConfig), baseConfig);
     expect(r[0]!.turmaId).toBe("DPF-1");
   });
 
