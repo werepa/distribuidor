@@ -94,14 +94,86 @@ describe("distribuirTurmas — balanceamento SUB JUDICE / Sexo F", () => {
   });
 });
 
+describe("distribuirTurmas — paridade (par/ímpar) entre turmas", () => {
+  it("com 3 turmas e critério round-robin, distribui em pares (não 1 a 1) para manter todas as turmas com número par", () => {
+    const cfg: Config = {
+      ...baseConfig,
+      turmasPorCargo: { APF: [10, 10, 10], DPF: [], EPF: [], PCF: [], PPF: [] },
+      criterioDistribuicao: "round-robin"
+    };
+    const pessoas = ["A", "B", "C", "D"].map(n => pessoa({ nome: n }));
+    const r = distribuirTurmas(pessoas, turmasFor(cfg), cfg);
+    const counts = ["APF-1", "APF-2", "APF-3"].map(id => r.filter(p => p.turmaId === id).length);
+    expect(counts.every(c => c % 2 === 0)).toBe(true);
+    expect(counts.reduce((a, b) => a + b, 0)).toBe(4);
+  });
+
+  it("com total ímpar, apenas 1 turma fica com número ímpar de alunos", () => {
+    const cfg: Config = {
+      ...baseConfig,
+      turmasPorCargo: { APF: [10, 10, 10], DPF: [], EPF: [], PCF: [], PPF: [] },
+      criterioDistribuicao: "round-robin"
+    };
+    const pessoas = ["A", "B", "C", "D", "E"].map(n => pessoa({ nome: n }));
+    const r = distribuirTurmas(pessoas, turmasFor(cfg), cfg);
+    const counts = ["APF-1", "APF-2", "APF-3"].map(id => r.filter(p => p.turmaId === id).length);
+    expect(counts.filter(c => c % 2 === 1).length).toBe(1);
+    expect(counts.reduce((a, b) => a + b, 0)).toBe(5);
+  });
+
+  it("com total par, nenhuma turma fica com número ímpar de alunos", () => {
+    const cfg: Config = {
+      ...baseConfig,
+      turmasPorCargo: { APF: [10, 10, 10], DPF: [], EPF: [], PCF: [], PPF: [] },
+      criterioDistribuicao: "completar"
+    };
+    const pessoas = ["A", "B", "C", "D", "E", "F"].map(n => pessoa({ nome: n }));
+    const r = distribuirTurmas(pessoas, turmasFor(cfg), cfg);
+    const counts = ["APF-1", "APF-2", "APF-3"].map(id => r.filter(p => p.turmaId === id).length);
+    expect(counts.every(c => c % 2 === 0)).toBe(true);
+  });
+
+  it("sexo F ímpar, mas total par: só 1 turma fica com número ímpar de mulheres, e nenhuma turma fica com total ímpar", () => {
+    const cfg: Config = {
+      ...baseConfig,
+      turmasPorCargo: { APF: [10, 10, 10], DPF: [], EPF: [], PCF: [], PPF: [] },
+      criterioDistribuicao: "round-robin"
+    };
+    const pessoas = [
+      pessoa({ nome: "Fa", sexo: "F" }), pessoa({ nome: "Fb", sexo: "F" }), pessoa({ nome: "Fc", sexo: "F" }),
+      pessoa({ nome: "Ma", sexo: "M" }), pessoa({ nome: "Mb", sexo: "M" }), pessoa({ nome: "Mc", sexo: "M" })
+    ];
+    const r = distribuirTurmas(pessoas, turmasFor(cfg), cfg);
+    const ids = ["APF-1", "APF-2", "APF-3"];
+    const totals = ids.map(id => r.filter(p => p.turmaId === id).length);
+    const femCounts = ids.map(id => r.filter(p => p.turmaId === id && p.sexo === "F").length);
+    expect(totals.every(c => c % 2 === 0)).toBe(true);
+    expect(femCounts.filter(c => c % 2 === 1).length).toBe(1);
+    expect(femCounts.reduce((a, b) => a + b, 0)).toBe(3);
+  });
+
+  it("estoura a capacidade configurada em pares: turma que recebe a sobra continua respeitando a paridade", () => {
+    const cfg: Config = {
+      ...baseConfig,
+      turmasPorCargo: { APF: [2, 2, 2], DPF: [], EPF: [], PCF: [], PPF: [] },
+      criterioDistribuicao: "completar"
+    };
+    const pessoas = ["A", "B", "C", "D", "E", "F", "G", "H"].map(n => pessoa({ nome: n }));
+    const r = distribuirTurmas(pessoas, turmasFor(cfg), cfg);
+    const counts = ["APF-1", "APF-2", "APF-3"].map(id => r.filter(p => p.turmaId === id).length);
+    expect(counts.reduce((a, b) => a + b, 0)).toBe(8);
+    expect(counts.filter(c => c % 2 === 1).length).toBe(0);
+  });
+});
+
 describe("distribuirTurmas — critério round-robin", () => {
-  it("distribui um por turma em rodízio", () => {
+  it("distribui em pares por turma em rodízio (paridade tem prioridade sobre alternância individual)", () => {
     const cfg = { ...baseConfig, criterioDistribuicao: "round-robin" as const };
     const pessoas = ["A","B","C","D"].map(n => pessoa({ nome: n }));
     const r = distribuirTurmas(pessoas, turmasFor(cfg), cfg);
     expect(r.find(p => p.nome === "A")?.turmaId).toBe("APF-1");
-    expect(r.find(p => p.nome === "B")?.turmaId).toBe("APF-2");
-    expect(r.find(p => p.nome === "C")?.turmaId).toBe("APF-1");
+    expect(r.find(p => p.nome === "B")?.turmaId).toBe("APF-1");
+    expect(r.find(p => p.nome === "C")?.turmaId).toBe("APF-2");
     expect(r.find(p => p.nome === "D")?.turmaId).toBe("APF-2");
   });
 });

@@ -31,39 +31,59 @@ export function distribuirTurmas(pessoas: Pessoa[], turmas: Turma[], cfg: Config
 
     livres.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
-    const bSJ = livres.filter(p => p.situacao === "SUB JUDICE");
-    const bF = livres.filter(p => p.situacao !== "SUB JUDICE" && p.sexo === "F");
-    const bRest = livres.filter(p => p.situacao !== "SUB JUDICE" && p.sexo === "M");
+    const bF = livres.filter(p => p.sexo === "F");
+    const bM = livres.filter(p => p.sexo === "M");
 
-    const placeRR = (bucket: Pessoa[]) => {
-      let i = 0;
-      for (const p of bucket) {
-        let tentativas = 0;
-        while (tentativas < n && atual[i % n]! >= cap[i % n]!) { i++; tentativas++; }
-        const slot = i % n;
-        p.turmaId = turmasC[slot]!.id;
-        atual[slot]!++;
-        i++;
+    const splitPairs = (bucket: Pessoa[]): { pares: [Pessoa, Pessoa][]; sobra: Pessoa | undefined } => {
+      const pares: [Pessoa, Pessoa][] = [];
+      for (let i = 0; i + 1 < bucket.length; i += 2) pares.push([bucket[i]!, bucket[i + 1]!]);
+      const sobra = bucket.length % 2 === 1 ? bucket[bucket.length - 1] : undefined;
+      return { pares, sobra };
+    };
+
+    const restante = (i: number) => cap[i]! - atual[i]!;
+
+    const overflowTarget = (): number => {
+      for (let i = n - 1; i >= 0; i--) if (restante(i) > 0) return i;
+      return n - 1;
+    };
+
+    const placePares = (pares: [Pessoa, Pessoa][]) => {
+      if (pares.length === 0) return;
+
+      if (cfg.criterioDistribuicao === "round-robin") {
+        let i = 0;
+        for (const [p1, p2] of pares) {
+          let tentativas = 0;
+          while (tentativas < n && restante(i % n) < 2) { i++; tentativas++; }
+          const slot = tentativas < n ? i % n : overflowTarget();
+          p1.turmaId = turmasC[slot]!.id;
+          p2.turmaId = turmasC[slot]!.id;
+          atual[slot]! += 2;
+          i++;
+        }
+      } else {
+        let cur = 0;
+        for (const [p1, p2] of pares) {
+          while (cur < n && restante(cur) < 2) cur++;
+          const slot = cur < n ? cur : overflowTarget();
+          p1.turmaId = turmasC[slot]!.id;
+          p2.turmaId = turmasC[slot]!.id;
+          atual[slot]! += 2;
+        }
       }
     };
 
-    placeRR(bSJ);
-    placeRR(bF);
+    const { pares: paresF, sobra: sobraF } = splitPairs(bF);
+    const { pares: paresM, sobra: sobraM } = splitPairs(bM);
 
-    if (cfg.criterioDistribuicao === "round-robin") {
-      placeRR(bRest);
-    } else {
-      let slot = 0;
-      for (const p of bRest) {
-        while (slot < n && atual[slot]! >= cap[slot]!) slot++;
-        if (slot >= n) {
-          const abaixoDaCapacidade = atual.findIndex((c, i) => c < cap[i]!);
-          // todas as turmas já atingiram a capacidade configurada: a sobra vai para a última
-          slot = abaixoDaCapacidade >= 0 ? abaixoDaCapacidade : n - 1;
-        }
-        p.turmaId = turmasC[slot]!.id;
-        atual[slot]!++;
-      }
+    placePares(paresF);
+    placePares(paresM);
+
+    if (sobraF || sobraM) {
+      const slot = overflowTarget();
+      if (sobraF) { sobraF.turmaId = turmasC[slot]!.id; atual[slot]!++; }
+      if (sobraM) { sobraM.turmaId = turmasC[slot]!.id; atual[slot]!++; }
     }
   }
 
