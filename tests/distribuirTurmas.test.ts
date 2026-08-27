@@ -133,7 +133,7 @@ describe("distribuirTurmas — paridade (par/ímpar) entre turmas", () => {
     expect(counts.every(c => c % 2 === 0)).toBe(true);
   });
 
-  it("sexo F ímpar, mas total par: só 1 turma fica com número ímpar de mulheres, e nenhuma turma fica com total ímpar", () => {
+  it("sexo F ímpar: no máximo 1 turma fica com número ímpar de mulheres (paridade tem prioridade sobre uniformidade)", () => {
     const cfg: Config = {
       ...baseConfig,
       turmasPorCargo: { APF: [10, 10, 10], DPF: [], EPF: [], PCF: [], PPF: [] },
@@ -145,9 +145,7 @@ describe("distribuirTurmas — paridade (par/ímpar) entre turmas", () => {
     ];
     const r = distribuirTurmas(pessoas, turmasFor(cfg), cfg);
     const ids = ["APF-1", "APF-2", "APF-3"];
-    const totals = ids.map(id => r.filter(p => p.turmaId === id).length);
     const femCounts = ids.map(id => r.filter(p => p.turmaId === id && p.sexo === "F").length);
-    expect(totals.every(c => c % 2 === 0)).toBe(true);
     expect(femCounts.filter(c => c % 2 === 1).length).toBe(1);
     expect(femCounts.reduce((a, b) => a + b, 0)).toBe(3);
   });
@@ -163,6 +161,35 @@ describe("distribuirTurmas — paridade (par/ímpar) entre turmas", () => {
     const counts = ["APF-1", "APF-2", "APF-3"].map(id => r.filter(p => p.turmaId === id).length);
     expect(counts.reduce((a, b) => a + b, 0)).toBe(8);
     expect(counts.filter(c => c % 2 === 1).length).toBe(0);
+  });
+});
+
+describe("distribuirTurmas — paridade de sexo F tem prioridade sobre uniformidade", () => {
+  it("4 mulheres em 3 turmas => 2,2,0 (não 2,1,1), independente do critério configurado", () => {
+    for (const criterioDistribuicao of ["completar", "round-robin"] as const) {
+      const cfg: Config = {
+        ...baseConfig,
+        turmasPorCargo: { APF: [10, 10, 10], DPF: [], EPF: [], PCF: [], PPF: [] },
+        criterioDistribuicao
+      };
+      const pessoas = ["Fa", "Fb", "Fc", "Fd"].map(n => pessoa({ nome: n, sexo: "F" }));
+      const r = distribuirTurmas(pessoas, turmasFor(cfg), cfg);
+      const femCounts = ["APF-1", "APF-2", "APF-3"].map(id => r.filter(p => p.turmaId === id).length);
+      expect(femCounts.sort((a, b) => b - a)).toEqual([2, 2, 0]);
+    }
+  });
+
+  it("com número de mulheres ímpar, no máximo 1 turma fica ímpar, e a sobra vai para a turma com menos mulheres (menor diferença como desempate)", () => {
+    const cfg: Config = {
+      ...baseConfig,
+      turmasPorCargo: { APF: [10, 10, 10], DPF: [], EPF: [], PCF: [], PPF: [] },
+      criterioDistribuicao: "round-robin"
+    };
+    const pessoas = ["Fa", "Fb", "Fc", "Fd", "Fe"].map(n => pessoa({ nome: n, sexo: "F" }));
+    const r = distribuirTurmas(pessoas, turmasFor(cfg), cfg);
+    const femCounts = ["APF-1", "APF-2", "APF-3"].map(id => r.filter(p => p.turmaId === id).length);
+    expect(femCounts.filter(c => c % 2 === 1).length).toBe(1);
+    expect(femCounts.sort((a, b) => b - a)).toEqual([2, 2, 1]);
   });
 });
 

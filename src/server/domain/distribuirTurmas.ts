@@ -34,13 +34,6 @@ export function distribuirTurmas(pessoas: Pessoa[], turmas: Turma[], cfg: Config
     const bF = livres.filter(p => p.sexo === "F");
     const bM = livres.filter(p => p.sexo === "M");
 
-    const splitPairs = (bucket: Pessoa[]): { pares: [Pessoa, Pessoa][]; sobra: Pessoa | undefined } => {
-      const pares: [Pessoa, Pessoa][] = [];
-      for (let i = 0; i + 1 < bucket.length; i += 2) pares.push([bucket[i]!, bucket[i + 1]!]);
-      const sobra = bucket.length % 2 === 1 ? bucket[bucket.length - 1] : undefined;
-      return { pares, sobra };
-    };
-
     const restante = (i: number) => cap[i]! - atual[i]!;
 
     const overflowTarget = (): number => {
@@ -48,42 +41,75 @@ export function distribuirTurmas(pessoas: Pessoa[], turmas: Turma[], cfg: Config
       return n - 1;
     };
 
-    const placePares = (pares: [Pessoa, Pessoa][]) => {
-      if (pares.length === 0) return;
+    const minCountTarget = (): number => {
+      let best = -1;
+      for (let i = 0; i < n; i++) {
+        if (restante(i) <= 0) continue;
+        if (best === -1 || atual[i]! < atual[best]!) best = i;
+      }
+      return best === -1 ? overflowTarget() : best;
+    };
 
-      if (cfg.criterioDistribuicao === "round-robin") {
-        let i = 0;
-        for (const [p1, p2] of pares) {
-          let tentativas = 0;
-          while (tentativas < n && restante(i % n) < 2) { i++; tentativas++; }
-          const slot = tentativas < n ? i % n : overflowTarget();
-          p1.turmaId = turmasC[slot]!.id;
-          p2.turmaId = turmasC[slot]!.id;
-          atual[slot]! += 2;
-          i++;
-        }
-      } else {
-        let cur = 0;
-        for (const [p1, p2] of pares) {
-          while (cur < n && restante(cur) < 2) cur++;
-          const slot = cur < n ? cur : overflowTarget();
-          p1.turmaId = turmasC[slot]!.id;
-          p2.turmaId = turmasC[slot]!.id;
-          atual[slot]! += 2;
-        }
+    const splitPairs = (bucket: Pessoa[]): { pares: [Pessoa, Pessoa][]; sobra: Pessoa | undefined } => {
+      const pares: [Pessoa, Pessoa][] = [];
+      for (let i = 0; i + 1 < bucket.length; i += 2) pares.push([bucket[i]!, bucket[i + 1]!]);
+      const sobra = bucket.length % 2 === 1 ? bucket[bucket.length - 1] : undefined;
+      return { pares, sobra };
+    };
+
+    const placeParesRoundRobin = (pares: [Pessoa, Pessoa][]) => {
+      let i = 0;
+      for (const [p1, p2] of pares) {
+        let tentativas = 0;
+        while (tentativas < n && restante(i % n) < 2) { i++; tentativas++; }
+        const slot = tentativas < n ? i % n : overflowTarget();
+        p1.turmaId = turmasC[slot]!.id;
+        p2.turmaId = turmasC[slot]!.id;
+        atual[slot]! += 2;
+        i++;
       }
     };
 
-    const { pares: paresF, sobra: sobraF } = splitPairs(bF);
+    const placeParesCompletar = (pares: [Pessoa, Pessoa][]) => {
+      let cur = 0;
+      for (const [p1, p2] of pares) {
+        while (cur < n && restante(cur) < 2) cur++;
+        const slot = cur < n ? cur : overflowTarget();
+        p1.turmaId = turmasC[slot]!.id;
+        p2.turmaId = turmasC[slot]!.id;
+        atual[slot]! += 2;
+      }
+    };
+
+    // Mulheres: sempre em pares, sempre em rodízio (independente do critério
+    // configurado), para priorizar o menor número possível de turmas com
+    // quantidade ímpar de mulheres; a sobra (quando o total de mulheres é
+    // ímpar) vai para a turma com menor quantidade atual, minimizando a
+    // diferença entre turmas como critério de desempate.
+    const placeMulheres = (bucket: Pessoa[]) => {
+      const { pares, sobra } = splitPairs(bucket);
+      placeParesRoundRobin(pares);
+      if (sobra) {
+        const slot = minCountTarget();
+        sobra.turmaId = turmasC[slot]!.id;
+        atual[slot]!++;
+      }
+    };
+
+    const placePares = (pares: [Pessoa, Pessoa][]) => {
+      if (pares.length === 0) return;
+      if (cfg.criterioDistribuicao === "round-robin") placeParesRoundRobin(pares);
+      else placeParesCompletar(pares);
+    };
+
+    placeMulheres(bF);
+
     const { pares: paresM, sobra: sobraM } = splitPairs(bM);
-
-    placePares(paresF);
     placePares(paresM);
-
-    if (sobraF || sobraM) {
+    if (sobraM) {
       const slot = overflowTarget();
-      if (sobraF) { sobraF.turmaId = turmasC[slot]!.id; atual[slot]!++; }
-      if (sobraM) { sobraM.turmaId = turmasC[slot]!.id; atual[slot]!++; }
+      sobraM.turmaId = turmasC[slot]!.id;
+      atual[slot]!++;
     }
   }
 
